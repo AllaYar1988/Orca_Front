@@ -363,7 +363,7 @@ const DashboardTab = ({ device, logs, onRefresh, isRefreshing, lastUpdate }) => 
           )}
         </div>
         <RefreshTimer
-          interval={60}
+          interval={10}
           onRefresh={onRefresh}
           isLoading={isRefreshing}
           size="md"

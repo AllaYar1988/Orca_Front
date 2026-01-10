@@ -105,7 +105,6 @@ const SensorReadingCard = ({
       <div className="sensor-reading-card__chart">
         <Sparkline
           data={history}
-          width={100}
           height={28}
           color={color}
           unit={unit}

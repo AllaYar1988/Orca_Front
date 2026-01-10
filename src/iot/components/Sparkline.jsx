@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+// Sparkline Component - Mini chart for sensor cards using uPlot
+// Based on Hawk WEBSW-Front sparkline implementation
+import { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
@@ -26,194 +28,340 @@ const filterTodayData = (data) => {
 };
 
 /**
- * Create gradient fill for uPlot
+ * Convert hex color to rgba
  */
-const createGradient = (u, color) => {
-  const gradient = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height);
-  gradient.addColorStop(0, `${color}40`);
-  gradient.addColorStop(1, `${color}05`);
-  return gradient;
-};
+function hexToRgba(hex, alpha) {
+  let r, g, b;
+  if (hex.length === 4) {
+    r = parseInt(hex[1] + hex[1], 16);
+    g = parseInt(hex[2] + hex[2], 16);
+    b = parseInt(hex[3] + hex[3], 16);
+  } else {
+    r = parseInt(hex.slice(1, 3), 16);
+    g = parseInt(hex.slice(3, 5), 16);
+    b = parseInt(hex.slice(5, 7), 16);
+  }
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 /**
  * Sparkline Component using uPlot
  *
  * Features:
  * - Gradient fill under line
- * - Hover info via onHover callback or inline display
- * - No data point markers
+ * - Hover tooltip with value and time
+ * - Cursor point marker on hover
  * - Filters to show only today's data
- *
- * @param {function} onHover - Callback with { value, time } when hovering, null when leaving
- * @param {boolean} showInlineTooltip - Show tooltip inline below chart (default: true)
+ * - React.memo for performance
  */
 const Sparkline = ({
   data = [],
-  width = 120,
-  height = 32,
+  height = 35,
   color = '#0d6efd',
+  fillOpacity = 0.2,
+  strokeWidth = 1.5,
   unit = '',
   className = '',
   todayOnly = true,
-  onHover,
-  showInlineTooltip = true,
 }) => {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
-  const [hoverInfo, setHoverInfo] = useState(null);
+  const [hoverData, setHoverData] = useState(null);
+  const [chartWidth, setChartWidth] = useState(0);
+  const [isReady, setIsReady] = useState(false);
+  const isMouseOverRef = useRef(false);
 
+  // Measure container width with ResizeObserver
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Filter to today's data if enabled
-    const filteredData = todayOnly ? filterTodayData(data) : data;
-
-    if (filteredData.length === 0) {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
+    const updateWidth = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.offsetWidth;
+        if (width > 0) {
+          setChartWidth(width);
+          setIsReady(true);
+        }
       }
-      return;
+    };
+
+    updateWidth();
+
+    const resizeObserver = new ResizeObserver(updateWidth);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
     }
 
-    // Prepare data for uPlot
-    let timestamps = [];
-    let values = [];
+    return () => resizeObserver.disconnect();
+  }, []);
 
-    if (typeof filteredData[0] === 'object' && filteredData[0].timestamp) {
-      // Data from processSensorReadings: { timestamp, value }
-      timestamps = filteredData.map(d => Math.floor(new Date(d.timestamp).getTime() / 1000));
-      values = filteredData.map(d => parseFloat(d.value) || 0);
-    } else if (typeof filteredData[0] === 'object' && filteredData[0].logged_at) {
-      // Raw log data: { logged_at, log_value }
-      timestamps = filteredData.map(d => Math.floor(new Date(d.logged_at).getTime() / 1000));
-      values = filteredData.map(d => parseFloat(d.log_value) || 0);
-    } else {
-      // Fallback for simple array of numbers
-      const now = Math.floor(Date.now() / 1000);
-      timestamps = filteredData.map((_, i) => now - (filteredData.length - i - 1) * 60);
-      values = filteredData.map(d => parseFloat(d) || 0);
-    }
+  // Convert data to uPlot format
+  const { uplotData, formattedData } = useMemo(() => {
+    // Filter to today's data if enabled
+    const filtered = todayOnly ? filterTodayData(data) : data;
+    if (!filtered || filtered.length === 0) return { uplotData: null, formattedData: [] };
 
-    // Sort by timestamp (ascending) to ensure correct chart order
-    const sorted = timestamps.map((t, i) => ({ t, v: values[i] }))
-      .sort((a, b) => a.t - b.t);
-    timestamps = sorted.map(s => s.t);
-    values = sorted.map(s => s.v);
+    const formatted = filtered.map((item, index) => {
+      if (typeof item === 'number') {
+        return { value: item, index, datetime: '' };
+      }
 
-    // Hover plugin
-    const hoverPlugin = () => ({
-      hooks: {
-        setCursor: (u) => {
-          const { idx } = u.cursor;
-          if (idx !== null && idx !== undefined && values[idx] !== undefined) {
-            const val = values[idx];
-            const time = new Date(timestamps[idx] * 1000).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit'
-            });
+      // Handle different data formats
+      let datetime = '';
+      let value = 0;
 
-            const info = { value: val, time, unit };
-            setHoverInfo(info);
-            if (onHover) onHover(info);
-          }
-        },
-      },
+      if (item.timestamp) {
+        // Data from processSensorReadings: { timestamp, value }
+        datetime = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        value = parseFloat(item.value) || 0;
+      } else if (item.logged_at) {
+        // Raw log data: { logged_at, log_value }
+        datetime = new Date(item.logged_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        value = parseFloat(item.log_value) || 0;
+      } else if (item.datetime) {
+        datetime = item.datetime;
+        value = parseFloat(item.value) || 0;
+      } else {
+        value = parseFloat(item.value || item) || 0;
+      }
+
+      return { value, datetime, index };
     });
 
-    // uPlot options
-    const opts = {
-      width,
-      height,
-      plugins: [hoverPlugin()],
+    // Sort by index to ensure correct order
+    formatted.sort((a, b) => a.index - b.index);
+
+    // uPlot format: [[indices], [values]]
+    const indices = formatted.map((_, i) => i);
+    const values = formatted.map(d => d.value);
+
+    return {
+      uplotData: [indices, values],
+      formattedData: formatted
+    };
+  }, [data, todayOnly]);
+
+  // Handle mouse leave
+  const handleMouseLeave = useCallback(() => {
+    setHoverData(null);
+    isMouseOverRef.current = false;
+    if (chartRef.current) {
+      chartRef.current.setCursor({ left: -10, top: -10 });
+    }
+  }, []);
+
+  // Build uPlot options
+  const buildOptions = useCallback(() => {
+    return {
+      width: chartWidth,
+      height: height,
+      padding: [2, 2, 2, 2],
       cursor: {
         show: true,
         x: true,
         y: false,
         points: {
-          show: false, // No data point markers on hover
+          show: true,
+          size: 6,
+          fill: color,
+          stroke: '#fff',
+          width: 1
         },
+        drag: { x: false, y: false }
       },
       select: { show: false },
-      legend: { show: false },
-      axes: [
-        { show: false },
-        { show: false },
-      ],
       scales: {
         x: { time: false },
         y: {
           auto: true,
-          range: (u, min, max) => {
-            const padding = (max - min) * 0.15 || 1;
-            return [min - padding, max + padding];
-          },
-        },
+          range: (u, dataMin, dataMax) => {
+            const range = dataMax - dataMin;
+            const padding = range > 0 ? range * 0.1 : 1;
+            return [dataMin - padding, dataMax + padding];
+          }
+        }
       },
+      axes: [
+        { show: false },
+        { show: false }
+      ],
       series: [
-        {},
+        {}, // X series (index)
         {
           stroke: color,
-          width: 1.5,
-          fill: (u) => createGradient(u, color),
-          points: { show: false }, // No data point markers
-        },
+          width: strokeWidth,
+          fill: (u) => {
+            const ctx = u.ctx;
+            const canvasHeight = u.height;
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+            gradient.addColorStop(0, hexToRgba(color, fillOpacity * 2));
+            gradient.addColorStop(1, hexToRgba(color, 0));
+            return gradient;
+          },
+          points: { show: false }
+        }
       ],
-    };
+      hooks: {
+        setCursor: [
+          (u) => {
+            if (!isMouseOverRef.current) {
+              setHoverData(null);
+              return;
+            }
 
-    // Destroy previous chart
+            const { idx, left } = u.cursor;
+
+            if (left === undefined || left === null || left < 0 || left > u.width) {
+              setHoverData(null);
+              return;
+            }
+
+            if (idx !== null && idx !== undefined && formattedData[idx]) {
+              const dataPoint = formattedData[idx];
+              setHoverData({
+                value: dataPoint.value,
+                datetime: dataPoint.datetime,
+                unit
+              });
+            } else {
+              setHoverData(null);
+            }
+          }
+        ]
+      },
+      legend: { show: false }
+    };
+  }, [chartWidth, height, color, strokeWidth, fillOpacity, formattedData, unit]);
+
+  // Initialize/update chart
+  useEffect(() => {
+    if (!containerRef.current || !uplotData || chartWidth === 0) return;
+
+    // Clean up existing chart
     if (chartRef.current) {
       chartRef.current.destroy();
+      chartRef.current = null;
     }
 
-    // Create chart
-    chartRef.current = new uPlot(opts, [timestamps, values], containerRef.current);
+    const opts = buildOptions();
+    chartRef.current = new uPlot(opts, uplotData, containerRef.current);
 
-    // Clear hover info on mouse leave
-    const handleMouseLeave = () => {
-      setHoverInfo(null);
-      if (onHover) onHover(null);
+    // Track mouse enter/leave on the chart overlay
+    const over = chartRef.current.over;
+
+    const handleMouseEnter = () => {
+      isMouseOverRef.current = true;
     };
 
-    containerRef.current.addEventListener('mouseleave', handleMouseLeave);
+    const handleMouseLeaveInternal = () => {
+      isMouseOverRef.current = false;
+      setHoverData(null);
+      if (chartRef.current) {
+        chartRef.current.setCursor({ left: -10, top: -10 });
+      }
+    };
+
+    over.addEventListener('mouseenter', handleMouseEnter);
+    over.addEventListener('mouseleave', handleMouseLeaveInternal);
 
     return () => {
+      over.removeEventListener('mouseenter', handleMouseEnter);
+      over.removeEventListener('mouseleave', handleMouseLeaveInternal);
       if (chartRef.current) {
         chartRef.current.destroy();
         chartRef.current = null;
       }
-      containerRef.current?.removeEventListener('mouseleave', handleMouseLeave);
     };
-  }, [data, width, height, color, unit, todayOnly, onHover]);
+  }, [uplotData, chartWidth, buildOptions]);
+
+  // Handle resize
+  useEffect(() => {
+    if (chartRef.current && chartWidth > 0) {
+      chartRef.current.setSize({ width: chartWidth, height });
+    }
+  }, [chartWidth, height]);
 
   // Filter for display check
   const filteredData = todayOnly ? filterTodayData(data) : data;
 
-  // Handle empty data
-  if (filteredData.length === 0) {
+  // Empty state with flat line placeholder
+  if (!filteredData || filteredData.length === 0) {
     return (
       <div
+        ref={containerRef}
         className={`sparkline sparkline--empty ${className}`}
-        style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{
+          width: '100%',
+          height: `${height}px`,
+          backgroundColor: '#f9fafb',
+          borderRadius: '4px',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
       >
-        <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>No data today</span>
+        <div style={{
+          width: '80%',
+          height: '2px',
+          backgroundColor: `${color}40`,
+          borderRadius: '1px'
+        }} />
       </div>
     );
   }
 
-  return (
-    <div className={`sparkline-wrapper ${className}`}>
-      <div ref={containerRef} style={{ width, height }} />
+  const tooltipHeight = 22;
 
-      {/* Inline tooltip below chart */}
-      {showInlineTooltip && hoverInfo && (
-        <div className="sparkline-inline-tooltip">
-          <span className="sparkline-inline-tooltip__value">{hoverInfo.value}{unit}</span>
-          <span className="sparkline-inline-tooltip__time">{hoverInfo.time}</span>
+  return (
+    <div
+      className={`sparkline-wrapper ${className}`}
+      style={{
+        width: '100%',
+        height: `${height + tooltipHeight + 2}px`,
+        visibility: isReady ? 'visible' : 'hidden'
+      }}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Chart container */}
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
+          height: `${height}px`
+        }}
+      />
+
+      {/* Tooltip area - always reserved, fades in/out */}
+      <div style={{
+        width: '100%',
+        height: `${tooltipHeight}px`,
+        marginTop: '2px',
+        opacity: hoverData ? 1 : 0,
+        transition: 'opacity 0.15s ease'
+      }}>
+        <div style={{
+          width: '100%',
+          height: '100%',
+          background: `linear-gradient(135deg, ${color}15 0%, ${color}25 100%)`,
+          borderLeft: `3px solid ${color}`,
+          borderRadius: '0 4px 4px 0',
+          padding: '4px 8px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '10px',
+          boxSizing: 'border-box'
+        }}>
+          <span style={{ fontWeight: 700, color: color }}>
+            {hoverData ? `${typeof hoverData.value === 'number' ? hoverData.value.toFixed(2) : hoverData.value} ${hoverData.unit}` : '\u00A0'}
+          </span>
+          <span style={{ color: '#6b7280', fontSize: '9px' }}>
+            {hoverData?.datetime || '\u00A0'}
+          </span>
         </div>
-      )}
+      </div>
     </div>
   );
 };
 
-export default Sparkline;
+// Wrap with React.memo to prevent unnecessary re-renders
+export default memo(Sparkline);
