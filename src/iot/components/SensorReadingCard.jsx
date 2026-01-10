@@ -71,22 +71,7 @@ const SensorReadingCard = ({
   const config = getSensorConfig(type);
   const trend = calculateTrend(history);
   const displayName = name || config.label;
-
-  // Get color based on sensor type
-  const getColor = () => {
-    const colors = {
-      TMP: '#ef4444', // red for temperature
-      VLT: '#f59e0b', // amber for voltage
-      CUR: '#eab308', // yellow for current
-      HUM: '#3b82f6', // blue for humidity
-      PRS: '#8b5cf6', // purple for pressure
-      CO2: '#10b981', // green for CO2
-      default: '#0d6efd', // primary blue
-    };
-    return colors[type] || colors.default;
-  };
-
-  const color = getColor();
+  const color = config.color || '#6b7280';
 
   return (
     <div className={`sensor-reading-card ${className}`}>
