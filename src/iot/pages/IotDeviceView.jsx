@@ -6,8 +6,10 @@ import { getDeviceDetails, getDeviceLogsRange, getDeviceEvents, getDeviceConfigs
 import IotLayout from '../components/IotLayout';
 import SensorReadingCard from '../components/SensorReadingCard';
 import RefreshTimer from '../components/RefreshTimer';
+import ChartsTab from '../components/ChartsTab';
 import { SENSOR_TYPES } from '../config/sensorTypes';
 import '../styles/sensor-components.css';
+import '../styles/charts.css';
 
 /**
  * Get start of today in ISO format
@@ -310,8 +312,8 @@ const IotDeviceView = () => {
                     lastUpdate={lastUpdate}
                   />
                 )}
-            {activeTab === 'charts' && <ChartsTab device={device} logs={logs} sensorConfigs={sensorConfigs} />}
-            {activeTab === 'logs' && <LogsTab logs={logs} sensorConfigs={sensorConfigs} />}
+            {activeTab === 'charts' && <ChartsTab device={device} logs={logs} sensorConfigs={sensorConfigs} deviceId={deviceId} />}
+            {activeTab === 'logs' && <LogsTab logs={logs} sensorConfigs={sensorConfigs} deviceId={deviceId} />}
             {activeTab === 'events' && <EventsTab events={events} />}
             {activeTab === 'config' && (
               <ConfigTab
@@ -524,22 +526,98 @@ const DashboardTab = ({ device, logs, sensorConfigs, onRefresh, isRefreshing, la
   );
 };
 
-// Charts Tab
-const ChartsTab = ({ device, logs, sensorConfigs }) => (
-  <div className="iot-charts-tab">
-    <div className="iot-card">
-      <div className="iot-card-body iot-empty-state">
-        <i className="bi bi-graph-up"></i>
-        <p>Full charts visualization coming soon.<br />Use the Dashboard tab to see sparkline trends.</p>
-      </div>
-    </div>
-  </div>
-);
+// Charts Tab is now imported from components/ChartsTab.jsx
 
-// Logs Tab
-const LogsTab = ({ logs, sensorConfigs }) => {
+// Logs Tab with pagination and date range selection
+const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
   // Create config lookup map
   const configMap = createConfigMap(sensorConfigs);
+
+  // Date and pagination state
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const [dateFrom, setDateFrom] = useState(today);
+  const [dateTo, setDateTo] = useState(today);
+  const [logs, setLogs] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const limit = 50;
+
+  // Check if viewing only today's data (both from and to are today)
+  const isToday = dateFrom === today && dateTo === today;
+
+  // Fetch logs for selected date range
+  useEffect(() => {
+    const fetchLogs = async () => {
+      // If viewing only today, use the real-time logs from parent
+      if (isToday) {
+        // Sort by time descending (newest first) and paginate
+        const sortedLogs = [...todayLogs].sort((a, b) =>
+          new Date(b.logged_at) - new Date(a.logged_at)
+        );
+        setTotalCount(sortedLogs.length);
+        const startIdx = (page - 1) * limit;
+        setLogs(sortedLogs.slice(startIdx, startIdx + limit));
+        return;
+      }
+
+      // Fetch historical data for date range
+      setLoading(true);
+      try {
+        const from = `${dateFrom}T00:00:00`;
+        const to = `${dateTo}T23:59:59`;
+
+        const response = await getDeviceLogsRange(deviceId, from, to, {
+          limit,
+          offset: (page - 1) * limit
+        });
+
+        if (response.success) {
+          // Sort by time descending (newest first)
+          const sortedLogs = (response.logs || []).sort((a, b) =>
+            new Date(b.logged_at) - new Date(a.logged_at)
+          );
+          setLogs(sortedLogs);
+          setTotalCount(response.total || 0);
+        }
+      } catch (err) {
+        console.error('Failed to fetch logs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLogs();
+  }, [dateFrom, dateTo, page, isToday, todayLogs, deviceId]);
+
+  // Handle date from change
+  const handleDateFromChange = (e) => {
+    const newFrom = e.target.value;
+    setDateFrom(newFrom);
+    // If from date is after to date, adjust to date
+    if (newFrom > dateTo) {
+      setDateTo(newFrom);
+    }
+    setPage(1);
+  };
+
+  // Handle date to change
+  const handleDateToChange = (e) => {
+    const newTo = e.target.value;
+    setDateTo(newTo);
+    // If to date is before from date, adjust from date
+    if (newTo < dateFrom) {
+      setDateFrom(newTo);
+    }
+    setPage(1);
+  };
+
+  // Go to today
+  const handleGoToToday = () => {
+    setDateFrom(today);
+    setDateTo(today);
+    setPage(1);
+  };
 
   // Get display name for a log key
   const getDisplayName = (logKey) => {
@@ -559,55 +637,167 @@ const LogsTab = ({ logs, sensorConfigs }) => {
     return '';
   };
 
+  const totalPages = Math.ceil(totalCount / limit);
+
+  // Generate page numbers to show
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (page <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (page >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = page - 1; i <= page + 1; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    return pages;
+  };
+
   return (
     <div className="iot-logs-tab">
       <div className="iot-card">
         <div className="iot-card-header">
           <span>Recent Logs</span>
-          <span className="iot-badge info">{logs.length} entries</span>
+          <span className="iot-badge info">{totalCount.toLocaleString()} entries</span>
         </div>
         <div className="iot-card-body">
-          {logs.length === 0 ? (
-            <p className="iot-empty-state">No logs available.</p>
-          ) : (
-            <div className="iot-table-responsive">
-              <table className="iot-table">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Sensor</th>
-                    <th>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map(log => {
-                    const displayName = getDisplayName(log.log_key);
-                    const unit = getUnit(log.log_key);
-                    const hasLabel = displayName !== log.log_key;
-
-                    return (
-                      <tr key={log.id}>
-                        <td className="iot-nowrap">{new Date(log.logged_at).toLocaleString()}</td>
-                        <td>
-                          {hasLabel ? (
-                            <span className="log-sensor-name">
-                              {displayName}
-                              <code className="log-sensor-key">{log.log_key}</code>
-                            </span>
-                          ) : (
-                            <code>{log.log_key || '-'}</code>
-                          )}
-                        </td>
-                        <td className="iot-truncate">
-                          {log.log_value || '-'}
-                          {unit && <span className="log-unit"> {unit}</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {/* Date Filter */}
+          <div className="logs-date-filter">
+            <div className="date-picker-group">
+              <label>From:</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={handleDateFromChange}
+                max={today}
+                className="iot-input date-input"
+              />
+              <label>To:</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={handleDateToChange}
+                min={dateFrom}
+                max={today}
+                className="iot-input date-input"
+              />
+              {!isToday && (
+                <button
+                  className="iot-btn-sm iot-btn-outline"
+                  onClick={handleGoToToday}
+                >
+                  Today
+                </button>
+              )}
             </div>
+            {isToday && (
+              <span className="live-badge">
+                <span className="live-dot"></span> Live
+              </span>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="iot-loading">
+              <div className="iot-spinner"></div>
+            </div>
+          ) : logs.length === 0 ? (
+            <p className="iot-empty-state">No logs available for this date range.</p>
+          ) : (
+            <>
+              <div className="iot-table-responsive">
+                <table className="iot-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Sensor</th>
+                      <th>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map(log => {
+                      const displayName = getDisplayName(log.log_key);
+                      const unit = getUnit(log.log_key);
+                      const hasLabel = displayName !== log.log_key;
+
+                      return (
+                        <tr key={log.id}>
+                          <td className="iot-nowrap">{new Date(log.logged_at).toLocaleString()}</td>
+                          <td>
+                            {hasLabel ? (
+                              <span className="log-sensor-name">
+                                {displayName}
+                                <code className="log-sensor-key">{log.log_key}</code>
+                              </span>
+                            ) : (
+                              <code>{log.log_key || '-'}</code>
+                            )}
+                          </td>
+                          <td className="iot-truncate">
+                            {log.log_value || '-'}
+                            {unit && <span className="log-unit"> {unit}</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="iot-pagination">
+                  <button
+                    className="iot-btn-outline iot-btn-sm"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page <= 1}
+                  >
+                    <i className="bi bi-chevron-left"></i>
+                  </button>
+
+                  <div className="page-numbers">
+                    {getPageNumbers().map((p, idx) =>
+                      p === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="page-ellipsis">...</span>
+                      ) : (
+                        <button
+                          key={p}
+                          className={`page-btn ${page === p ? 'active' : ''}`}
+                          onClick={() => setPage(p)}
+                        >
+                          {p}
+                        </button>
+                      )
+                    )}
+                  </div>
+
+                  <button
+                    className="iot-btn-outline iot-btn-sm"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page >= totalPages}
+                  >
+                    <i className="bi bi-chevron-right"></i>
+                  </button>
+
+                  <span className="page-info">
+                    Page {page} of {totalPages}
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

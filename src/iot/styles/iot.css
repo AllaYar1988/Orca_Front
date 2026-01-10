@@ -5,14 +5,29 @@
   --iot-primary: #0d6efd;
   --iot-primary-dark: #0056b3;
   --iot-success: #10b981;
+  --iot-success-dark: #059669;
   --iot-danger: #ef4444;
+  --iot-danger-dark: #dc2626;
   --iot-warning: #f59e0b;
+  --iot-warning-dark: #d97706;
   --iot-purple: #8b5cf6;
+  --iot-purple-dark: #7c3aed;
   --iot-dark: #1e293b;
   --iot-darker: #0f172a;
   --iot-light: #f1f5f9;
+  --iot-lighter: #f8fafc;
   --iot-gray: #64748b;
+  --iot-gray-light: #94a3b8;
   --iot-border: #e2e8f0;
+  --iot-border-light: #f0f0f0;
+
+  /* Chart-specific colors */
+  --chart-bg: #ffffff;
+  --chart-grid: #e5e7eb;
+  --chart-text: #374151;
+  --chart-muted: #6b7280;
+  --chart-shadow: rgba(0, 0, 0, 0.08);
+  --chart-shadow-hover: rgba(0, 0, 0, 0.15);
 }
 
 /* App Container */
@@ -1474,4 +1489,167 @@
 .iot-role-badge.viewer {
   background: linear-gradient(135deg, #6b7280, #4b5563);
   color: #fff;
+}
+
+/* ========== Logs Tab Styles ========== */
+
+/* Date Filter */
+.logs-date-filter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--iot-border);
+}
+
+.date-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.date-picker-group label {
+  font-weight: 500;
+  color: var(--iot-gray);
+  font-size: 0.875rem;
+}
+
+.date-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--iot-border);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--iot-primary);
+  box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
+}
+
+/* Live Badge */
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border-radius: 50%;
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* Pagination with Page Numbers */
+.iot-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 0.5rem;
+  border: 1px solid var(--iot-border);
+  background: #fff;
+  color: var(--iot-dark);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.page-btn:hover:not(.active) {
+  background: var(--iot-light);
+  border-color: var(--iot-primary);
+}
+
+.page-btn.active {
+  background: var(--iot-primary);
+  border-color: var(--iot-primary);
+  color: #fff;
+}
+
+.page-ellipsis {
+  padding: 0 0.5rem;
+  color: var(--iot-gray);
+}
+
+.page-info {
+  margin-left: 0.5rem;
+  color: var(--iot-gray);
+  font-size: 0.875rem;
+}
+
+/* Small button variations */
+.iot-btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.iot-btn-outline.iot-btn-sm {
+  min-width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iot-btn-outline.iot-btn-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .logs-date-filter {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .iot-pagination {
+    gap: 0.375rem;
+  }
+
+  .page-btn {
+    min-width: 32px;
+    height: 32px;
+    font-size: 0.8125rem;
+  }
+
+  .page-info {
+    width: 100%;
+    text-align: center;
+    margin-top: 0.5rem;
+    margin-left: 0;
+  }
 }
