@@ -1,0 +1,139 @@
+import { useState, useEffect } from 'react';
+import { useIotAuth } from '../context/IotAuthContext';
+import { getUserCompanies, getCompanyDevices } from '../api/devices';
+import IotLayout from '../components/IotLayout';
+import CompanyDataCard from '../components/CompanyDataCard';
+import '../styles/sensor-components.css';
+
+const IotCompanies = () => {
+  const { iotUser } = useIotAuth();
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchCompaniesWithDevices = async () => {
+      try {
+        const response = await getUserCompanies();
+        if (response.success) {
+          // Fetch devices for each company
+          const companiesWithDevices = await Promise.all(
+            response.companies.map(async (company) => {
+              try {
+                const devicesRes = await getCompanyDevices(company.id);
+                return {
+                  ...company,
+                  devices: devicesRes.success ? devicesRes.devices || [] : []
+                };
+              } catch {
+                return { ...company, devices: [] };
+              }
+            })
+          );
+          setCompanies(companiesWithDevices);
+        }
+      } catch (err) {
+        setError('Failed to load companies');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCompaniesWithDevices();
+  }, [iotUser]);
+
+  // Calculate overall stats
+  const stats = {
+    totalCompanies: companies.length,
+    totalDevices: companies.reduce((sum, c) => sum + (c.devices?.length || 0), 0),
+    onlineDevices: companies.reduce((sum, c) => sum + (c.devices?.filter(d => d.is_online).length || 0), 0),
+    offlineDevices: companies.reduce((sum, c) => sum + (c.devices?.filter(d => !d.is_online).length || 0), 0),
+  };
+
+  if (loading) {
+    return (
+      <IotLayout>
+        <div className="iot-loading">
+          <div className="iot-spinner"></div>
+        </div>
+      </IotLayout>
+    );
+  }
+
+  return (
+    <IotLayout>
+      <h2 className="iot-page-title">
+        <i className="bi bi-building"></i> Installations
+      </h2>
+
+      {error && <div className="iot-alert iot-alert-error">{error}</div>}
+
+      {/* Stats Overview */}
+      {companies.length > 0 && (
+        <div className="iot-stats-grid" style={{ marginBottom: '1.5rem' }}>
+          <div className="iot-stat-card">
+            <div className="iot-stat-icon blue">
+              <i className="bi bi-building"></i>
+            </div>
+            <div>
+              <div className="iot-stat-value">{stats.totalCompanies}</div>
+              <div className="iot-stat-label">Companies</div>
+            </div>
+          </div>
+
+          <div className="iot-stat-card">
+            <div className="iot-stat-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+              <i className="bi bi-cpu"></i>
+            </div>
+            <div>
+              <div className="iot-stat-value">{stats.totalDevices}</div>
+              <div className="iot-stat-label">Total Devices</div>
+            </div>
+          </div>
+
+          <div className="iot-stat-card">
+            <div className="iot-stat-icon green">
+              <i className="bi bi-check-circle"></i>
+            </div>
+            <div>
+              <div className="iot-stat-value">{stats.onlineDevices}</div>
+              <div className="iot-stat-label">Online</div>
+            </div>
+          </div>
+
+          <div className="iot-stat-card">
+            <div className="iot-stat-icon" style={{ background: 'linear-gradient(135deg, #64748b, #475569)' }}>
+              <i className="bi bi-x-circle"></i>
+            </div>
+            <div>
+              <div className="iot-stat-value">{stats.offlineDevices}</div>
+              <div className="iot-stat-label">Offline</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {companies.length === 0 ? (
+        <div className="iot-card">
+          <div className="iot-card-body iot-empty-state-large">
+            <i className="bi bi-building"></i>
+            <h3>No Companies Assigned</h3>
+            <p>You don't have access to any companies yet.<br />Please contact your administrator.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="company-data-grid">
+          {companies.map(company => (
+            <CompanyDataCard
+              key={company.id}
+              company={company}
+            />
+          ))}
+        </div>
+      )}
+    </IotLayout>
+  );
+};
+
+export default IotCompanies;
