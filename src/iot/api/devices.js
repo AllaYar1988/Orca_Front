@@ -117,3 +117,53 @@ export const getDeviceLastUpdate = async (deviceId) => {
   });
   return response.data;
 };
+
+// ============ Sensor Config API ============
+
+/**
+ * Get all sensor configs for a device
+ * @param {number} deviceId - Device ID
+ * @returns {Promise} - { success, configs, available_keys }
+ */
+export const getSensorConfigs = async (deviceId) => {
+  const response = await api.get('/sensor_config.php', {
+    params: { device_id: deviceId }
+  });
+  return response.data;
+};
+
+/**
+ * Get config for a specific sensor
+ * @param {number} deviceId - Device ID
+ * @param {string} logKey - Sensor key (e.g., 'temperature')
+ * @returns {Promise} - { success, config }
+ */
+export const getSensorConfig = async (deviceId, logKey) => {
+  const response = await api.get('/sensor_config.php', {
+    params: { device_id: deviceId, key: logKey }
+  });
+  return response.data;
+};
+
+/**
+ * Save sensor config (create or update)
+ * @param {object} config - Sensor config object
+ * @returns {Promise} - { success, config }
+ */
+export const saveSensorConfig = async (config) => {
+  const response = await api.post('/sensor_config.php', config);
+  return response.data;
+};
+
+/**
+ * Delete sensor config
+ * @param {number} deviceId - Device ID
+ * @param {string} logKey - Sensor key
+ * @returns {Promise} - { success }
+ */
+export const deleteSensorConfig = async (deviceId, logKey) => {
+  const response = await api.delete('/sensor_config.php', {
+    params: { device_id: deviceId, key: logKey }
+  });
+  return response.data;
+};
