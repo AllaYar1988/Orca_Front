@@ -1450,3 +1450,28 @@
   color: var(--iot-primary);
   font-weight: 600;
 }
+
+/* Role Badge */
+.iot-role-badge {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.iot-role-badge.admin {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: #fff;
+}
+
+.iot-role-badge.user {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+}
+
+.iot-role-badge.viewer {
+  background: linear-gradient(135deg, #6b7280, #4b5563);
+  color: #fff;
+}

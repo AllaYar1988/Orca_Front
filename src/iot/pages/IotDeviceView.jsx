@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useIotAuth } from '../context/IotAuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import { getDeviceDetails, getDeviceLogsRange, getDeviceEvents, getDeviceConfigs, getDeviceLastUpdate, getSensorConfigs, saveSensorConfig } from '../api/devices';
 import IotLayout from '../components/IotLayout';
 import SensorReadingCard from '../components/SensorReadingCard';
@@ -26,6 +27,7 @@ const getNow = () => {
 
 const IotDeviceView = () => {
   const { iotUser } = useIotAuth();
+  const { canEdit } = usePermissions();
   const { companyId, deviceId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -317,6 +319,7 @@ const IotDeviceView = () => {
                 sensorConfigs={sensorConfigs}
                 availableKeys={availableKeys}
                 deviceId={deviceId}
+                canEdit={canEdit}
                 onSensorConfigUpdate={(updated) => {
                   setSensorConfigs(prev => {
                     const idx = prev.findIndex(c => c.log_key === updated.log_key);
@@ -647,7 +650,7 @@ const EventsTab = ({ events }) => (
 );
 
 // Config Tab with Sensor Configuration
-const ConfigTab = ({ configs, sensorConfigs, availableKeys, deviceId, onSensorConfigUpdate }) => {
+const ConfigTab = ({ configs, sensorConfigs, availableKeys, deviceId, canEdit, onSensorConfigUpdate }) => {
   const [editingKey, setEditingKey] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
@@ -768,7 +771,7 @@ const ConfigTab = ({ configs, sensorConfigs, availableKeys, deviceId, onSensorCo
               {/* Configured sensors */}
               {sensorConfigs.map(config => (
                 <div key={config.log_key} className="sensor-config-item">
-                  {editingKey === config.log_key ? (
+                  {editingKey === config.log_key && canEdit ? (
                     // Edit Form
                     <SensorConfigForm
                       form={editForm}
@@ -783,6 +786,7 @@ const ConfigTab = ({ configs, sensorConfigs, availableKeys, deviceId, onSensorCo
                     <SensorConfigDisplay
                       config={config}
                       onEdit={() => handleEdit(config)}
+                      canEdit={canEdit}
                     />
                   )}
                 </div>
@@ -791,7 +795,7 @@ const ConfigTab = ({ configs, sensorConfigs, availableKeys, deviceId, onSensorCo
               {/* Unconfigured sensors */}
               {unconfiguredKeys.map(key => (
                 <div key={key} className="sensor-config-item unconfigured">
-                  {editingKey === key ? (
+                  {editingKey === key && canEdit ? (
                     <SensorConfigForm
                       form={editForm}
                       setForm={setEditForm}
@@ -806,12 +810,14 @@ const ConfigTab = ({ configs, sensorConfigs, availableKeys, deviceId, onSensorCo
                         <code>{key}</code>
                         <span className="iot-badge warning">Not configured</span>
                       </div>
-                      <button
-                        className="iot-btn-sm iot-btn-primary"
-                        onClick={() => handleAddNew(key)}
-                      >
-                        <i className="bi bi-plus"></i> Configure
-                      </button>
+                      {canEdit && (
+                        <button
+                          className="iot-btn-sm iot-btn-primary"
+                          onClick={() => handleAddNew(key)}
+                        >
+                          <i className="bi bi-plus"></i> Configure
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -847,7 +853,7 @@ const ConfigTab = ({ configs, sensorConfigs, availableKeys, deviceId, onSensorCo
 };
 
 // Sensor Config Display Component
-const SensorConfigDisplay = ({ config, onEdit }) => {
+const SensorConfigDisplay = ({ config, onEdit, canEdit }) => {
   const sensorType = SENSOR_TYPES[config.sensor_type] || SENSOR_TYPES.GEN;
 
   return (
@@ -858,9 +864,11 @@ const SensorConfigDisplay = ({ config, onEdit }) => {
           <code className="sensor-config-key">{config.log_key}</code>
           {config.label && <span className="sensor-config-label">{config.label}</span>}
         </div>
-        <button className="iot-btn-sm iot-btn-outline" onClick={onEdit}>
-          <i className="bi bi-pencil"></i> Edit
-        </button>
+        {canEdit && (
+          <button className="iot-btn-sm iot-btn-outline" onClick={onEdit}>
+            <i className="bi bi-pencil"></i> Edit
+          </button>
+        )}
       </div>
 
       <div className="sensor-config-details">

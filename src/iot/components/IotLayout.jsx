@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIotAuth } from '../context/IotAuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import { getUserCompanies, getCompanyDevices } from '../api/devices';
 import CompanyIcon from './CompanyIcon';
 import orcaLogo from '../../assets/orca.png';
@@ -9,6 +10,7 @@ import '../styles/sensor-components.css';
 
 const IotLayout = ({ children }) => {
   const { iotUser, iotLogout } = useIotAuth();
+  const { roleLabel, isAdmin, isViewer } = usePermissions();
   const [companies, setCompanies] = useState([]);
   const [expandedCompanies, setExpandedCompanies] = useState({});
   const [companyDevices, setCompanyDevices] = useState({});
@@ -91,6 +93,9 @@ const IotLayout = ({ children }) => {
             <div className="iot-user-info">
               <i className="bi bi-person-circle"></i>
               <span>{iotUser?.name || iotUser?.username}</span>
+              <span className={`iot-role-badge ${isAdmin ? 'admin' : isViewer ? 'viewer' : 'user'}`}>
+                {roleLabel}
+              </span>
             </div>
             <button className="iot-logout-btn" onClick={iotLogout}>
               <i className="bi bi-box-arrow-right"></i>
