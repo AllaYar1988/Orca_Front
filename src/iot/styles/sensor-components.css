@@ -812,6 +812,66 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Alarm State */
+.sensor-reading-card--alarm {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, #fef2f2 0%, #fff 100%);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2), 0 2px 8px rgba(239, 68, 68, 0.15);
+  position: relative;
+  animation: alarm-pulse 2s ease-in-out infinite;
+}
+
+.sensor-reading-card--alarm:hover {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+@keyframes alarm-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2), 0 2px 8px rgba(239, 68, 68, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.4), 0 4px 12px rgba(239, 68, 68, 0.25);
+  }
+}
+
+.sensor-reading-card__alarm-badge {
+  position: absolute;
+  top: -8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 0.25rem;
+  color: #fff;
+  z-index: 1;
+}
+
+.sensor-reading-card__alarm-badge i {
+  font-size: 0.625rem;
+}
+
+.sensor-reading-card__alarm-badge--low {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.sensor-reading-card__alarm-badge--high {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.sensor-reading-card__number--alarm {
+  color: #dc2626;
+}
+
+.sensor-reading-card--alarm .sensor-reading-card__icon {
+  background: rgba(239, 68, 68, 0.1);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .sensor-reading-grid {

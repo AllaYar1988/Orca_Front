@@ -267,6 +267,44 @@
   background: linear-gradient(135deg, var(--iot-purple) 0%, #7c3aed 100%);
 }
 
+.iot-stat-icon.red {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.iot-stat-icon.gray {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+}
+
+/* Offline state for stat card */
+.iot-stat-card--offline {
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  border: 1px solid #e5e7eb;
+}
+
+.iot-stat-card--offline .iot-stat-value {
+  color: #6b7280;
+}
+
+/* Alarm state for stat card */
+.iot-stat-card--alarm {
+  background: linear-gradient(135deg, #fef2f2 0%, #fff 100%);
+  border: 1px solid #fecaca;
+  animation: stat-alarm-pulse 2s ease-in-out infinite;
+}
+
+@keyframes stat-alarm-pulse {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  }
+}
+
+.iot-stat-card--alarm .iot-stat-value {
+  color: #dc2626;
+}
+
 .iot-stat-value {
   font-size: 1.75rem;
   font-weight: 700;

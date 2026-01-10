@@ -49,6 +49,36 @@ const formatValue = (value, unit) => {
 };
 
 /**
+ * Check alarm status based on value and sensor config
+ * @param {number} value - Current sensor value
+ * @param {object} sensorConfig - Sensor configuration with alarm settings
+ * @returns {object} { isAlarm: bool, type: 'low'|'high'|null }
+ */
+const checkAlarmStatus = (value, sensorConfig) => {
+  if (!sensorConfig || !sensorConfig.alarm_enabled) {
+    return { isAlarm: false, type: null };
+  }
+
+  const numValue = parseFloat(value);
+  if (isNaN(numValue)) {
+    return { isAlarm: false, type: null };
+  }
+
+  const minAlarm = sensorConfig.min_alarm;
+  const maxAlarm = sensorConfig.max_alarm;
+
+  if (minAlarm !== null && minAlarm !== undefined && numValue < parseFloat(minAlarm)) {
+    return { isAlarm: true, type: 'low' };
+  }
+
+  if (maxAlarm !== null && maxAlarm !== undefined && numValue > parseFloat(maxAlarm)) {
+    return { isAlarm: true, type: 'high' };
+  }
+
+  return { isAlarm: false, type: null };
+};
+
+/**
  * SensorReadingCard Component
  *
  * Displays a sensor reading with icon, current value, sparkline trend, and change indicator.
@@ -59,6 +89,7 @@ const formatValue = (value, unit) => {
  * @param {string} unit - Unit of measurement
  * @param {Array} history - Historical data points for sparkline
  * @param {string} className - Additional CSS classes
+ * @param {object} sensorConfig - Sensor configuration with alarm settings
  */
 const SensorReadingCard = ({
   type = 'GEN',
@@ -67,22 +98,37 @@ const SensorReadingCard = ({
   unit = '',
   history = [],
   className = '',
+  sensorConfig = null,
 }) => {
   const config = getSensorConfig(type);
   const trend = calculateTrend(history);
   const displayName = name || config.label;
   const color = config.color || '#6b7280';
 
+  // Check alarm status
+  const alarmStatus = checkAlarmStatus(value, sensorConfig);
+  const cardClassName = `sensor-reading-card ${className} ${alarmStatus.isAlarm ? 'sensor-reading-card--alarm' : ''}`;
+
   return (
-    <div className={`sensor-reading-card ${className}`}>
-      <div className="sensor-reading-card__icon" style={{ color }}>
+    <div className={cardClassName}>
+      {/* Alarm indicator badge */}
+      {alarmStatus.isAlarm && (
+        <div className={`sensor-reading-card__alarm-badge sensor-reading-card__alarm-badge--${alarmStatus.type}`}>
+          <i className={`bi bi-exclamation-triangle-fill`}></i>
+          {alarmStatus.type === 'low' ? 'LOW' : 'HIGH'}
+        </div>
+      )}
+
+      <div className="sensor-reading-card__icon" style={{ color: alarmStatus.isAlarm ? '#ef4444' : color }}>
         <SensorIcon type={type} size="md" />
       </div>
 
       <div className="sensor-reading-card__info">
         <span className="sensor-reading-card__name">{displayName}</span>
         <div className="sensor-reading-card__value">
-          <span className="sensor-reading-card__number">{formatValue(value, unit)}</span>
+          <span className={`sensor-reading-card__number ${alarmStatus.isAlarm ? 'sensor-reading-card__number--alarm' : ''}`}>
+            {formatValue(value, unit)}
+          </span>
           <span className="sensor-reading-card__unit">{unit}</span>
         </div>
       </div>
@@ -91,7 +137,7 @@ const SensorReadingCard = ({
         <Sparkline
           data={history}
           height={28}
-          color={color}
+          color={alarmStatus.isAlarm ? '#ef4444' : color}
           unit={unit}
           todayOnly={false}
         />

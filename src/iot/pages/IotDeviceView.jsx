@@ -422,20 +422,73 @@ const processSensorReadings = (logs, sensorConfigs = []) => {
   return readings;
 };
 
+/**
+ * Check if a sensor reading is in alarm state
+ */
+const checkReadingAlarm = (reading) => {
+  const config = reading.config;
+  if (!config || !config.alarm_enabled) return false;
+
+  const value = parseFloat(reading.value);
+  if (isNaN(value)) return false;
+
+  const minAlarm = config.min_alarm;
+  const maxAlarm = config.max_alarm;
+
+  if (minAlarm !== null && minAlarm !== undefined && value < parseFloat(minAlarm)) {
+    return true;
+  }
+  if (maxAlarm !== null && maxAlarm !== undefined && value > parseFloat(maxAlarm)) {
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Check if device is online based on last update time
+ * Device is considered offline if no data received for more than threshold minutes
+ */
+const OFFLINE_THRESHOLD_MINUTES = 60;
+
+const checkDeviceOnline = (lastUpdate) => {
+  if (!lastUpdate) return { isOnline: false, minutesAgo: null };
+
+  const lastUpdateTime = new Date(lastUpdate).getTime();
+  const now = Date.now();
+  const diffMs = now - lastUpdateTime;
+  const diffMinutes = Math.floor(diffMs / 60000);
+
+  return {
+    isOnline: diffMinutes < OFFLINE_THRESHOLD_MINUTES,
+    minutesAgo: diffMinutes
+  };
+};
+
 // Dashboard Tab
 const DashboardTab = ({ device, logs, sensorConfigs, onRefresh, isRefreshing, lastUpdate }) => {
   const sensorReadings = processSensorReadings(logs, sensorConfigs);
+
+  // Count alarms
+  const alarmCount = sensorReadings.filter(checkReadingAlarm).length;
+
+  // Check device online status based on last update time
+  const onlineStatus = checkDeviceOnline(lastUpdate);
 
   return (
     <div className="iot-dashboard-tab">
       {/* Live Data Header */}
       <div className="data-refresh-header">
         <div className="live-indicator">
-          <span className="live-indicator__dot"></span>
-          <span className="live-indicator__text">Live</span>
+          <span className={`live-indicator__dot ${!onlineStatus.isOnline ? 'live-indicator__dot--offline' : ''}`}></span>
+          <span className="live-indicator__text">{onlineStatus.isOnline ? 'Live' : 'Offline'}</span>
           {lastUpdate && (
             <span className="live-indicator__time">
-              Last updated: {new Date(lastUpdate).toLocaleTimeString()}
+              Last updated: {onlineStatus.minutesAgo === 0
+                ? 'just now'
+                : onlineStatus.minutesAgo < 60
+                  ? `${onlineStatus.minutesAgo} min ago`
+                  : `${Math.floor(onlineStatus.minutesAgo / 60)}h ${onlineStatus.minutesAgo % 60}m ago`
+              }
             </span>
           )}
         </div>
@@ -449,31 +502,22 @@ const DashboardTab = ({ device, logs, sensorConfigs, onRefresh, isRefreshing, la
 
       {/* Quick Stats */}
       <div className="iot-stats-grid">
-        <div className="iot-stat-card">
-          <div className="iot-stat-icon blue">
-            <i className="bi bi-activity"></i>
+        <div className={`iot-stat-card ${!onlineStatus.isOnline ? 'iot-stat-card--offline' : ''}`}>
+          <div className={`iot-stat-icon ${onlineStatus.isOnline ? 'green' : 'gray'}`}>
+            <i className={`bi ${onlineStatus.isOnline ? 'bi-wifi' : 'bi-wifi-off'}`}></i>
           </div>
           <div className="iot-stat-info">
-            <div className="iot-stat-value">{device.is_online ? 'Online' : 'Offline'}</div>
+            <div className="iot-stat-value">{onlineStatus.isOnline ? 'Online' : 'Offline'}</div>
             <div className="iot-stat-label">Status</div>
           </div>
         </div>
-        <div className="iot-stat-card">
-          <div className="iot-stat-icon green">
-            <i className="bi bi-clock-history"></i>
+        <div className={`iot-stat-card ${alarmCount > 0 ? 'iot-stat-card--alarm' : ''}`}>
+          <div className={`iot-stat-icon ${alarmCount > 0 ? 'red' : 'green'}`}>
+            <i className={`bi ${alarmCount > 0 ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}`}></i>
           </div>
           <div className="iot-stat-info">
-            <div className="iot-stat-value">{device.last_seen_at ? 'Active' : 'Never Seen'}</div>
-            <div className="iot-stat-label">Activity</div>
-          </div>
-        </div>
-        <div className="iot-stat-card">
-          <div className="iot-stat-icon purple">
-            <i className="bi bi-hdd"></i>
-          </div>
-          <div className="iot-stat-info">
-            <div className="iot-stat-value">{device.device_type || 'Sensor'}</div>
-            <div className="iot-stat-label">Type</div>
+            <div className="iot-stat-value">{alarmCount}</div>
+            <div className="iot-stat-label">Alarms</div>
           </div>
         </div>
         <div className="iot-stat-card">
@@ -509,6 +553,7 @@ const DashboardTab = ({ device, logs, sensorConfigs, onRefresh, isRefreshing, la
                   value={reading.value}
                   unit={reading.unit}
                   history={reading.history}
+                  sensorConfig={reading.config}
                 />
               ))}
             </div>

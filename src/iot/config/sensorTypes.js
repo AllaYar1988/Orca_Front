@@ -12,7 +12,7 @@
 
 export const SENSOR_TYPES = {
   // Environmental
-  TMP: { icon: "thermometer-half", label: "Temperature", category: "environmental", color: "#ef4444" }, // red
+  TMP: { icon: "thermometer-half", label: "Temperature", category: "environmental", color: "#f97316" }, // orange (red reserved for alarms)
   HUM: { icon: "droplet-fill", label: "Humidity", category: "environmental", color: "#3b82f6" }, // blue
   AMB: { icon: "brightness-high", label: "Ambient Light", category: "environmental", color: "#fbbf24" }, // amber
   UV: { icon: "sun-fill", label: "UV Index", category: "environmental", color: "#f97316" }, // orange
@@ -28,7 +28,7 @@ export const SENSOR_TYPES = {
 
   // Air Quality
   CO2: { icon: "wind", label: "CO2", category: "air_quality", color: "#10b981" }, // emerald
-  CO: { icon: "exclamation-triangle-fill", label: "Carbon Monoxide", category: "air_quality", color: "#dc2626" }, // red-600
+  CO: { icon: "exclamation-triangle-fill", label: "Carbon Monoxide", category: "air_quality", color: "#f59e0b" }, // amber (red reserved for alarms)
   O2: { icon: "lungs-fill", label: "Oxygen", category: "air_quality", color: "#0ea5e9" }, // sky
   CH4: { icon: "fire", label: "Methane", category: "air_quality", color: "#ea580c" }, // orange-600
   PM25: { icon: "cloud-haze-fill", label: "PM 2.5", category: "air_quality", color: "#a855f7" }, // purple

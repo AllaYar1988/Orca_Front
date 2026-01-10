@@ -4,11 +4,11 @@ import { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 
-// Chart color palette for multiple series
+// Chart color palette for multiple series (red reserved for alarms)
 const CHART_COLORS = [
-  '#0d6efd', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
-  '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1',
-  '#14b8a6', '#a855f7', '#22c55e', '#e11d48', '#0891b2'
+  '#0d6efd', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4',
+  '#ec4899', '#84cc16', '#f97316', '#6366f1', '#14b8a6',
+  '#a855f7', '#22c55e', '#0891b2', '#0ea5e9', '#8b5cf6'
 ];
 
 /**
@@ -54,7 +54,7 @@ function formatDateTime(timestamp) {
  */
 const UPlotChart = ({
   data = [],
-  variables = [], // Array of { key, label, color, unit, yMin, yMax }
+  variables = [], // Array of { key, label, color, unit, yMin, yMax, alarmEnabled, minAlarm, maxAlarm }
   height = 350,
   showLegend = true,
   onZoom = null,
@@ -141,7 +141,6 @@ const UPlotChart = ({
         label: v.label || v.key,
         stroke: v.color || CHART_COLORS[idx % CHART_COLORS.length],
         width: 2,
-        fill: hexToRgba(v.color || CHART_COLORS[idx % CHART_COLORS.length], 0.1),
         points: { show: false },
         spanGaps: true,
       }))
@@ -231,6 +230,188 @@ const UPlotChart = ({
       axes,
       series,
       hooks: {
+        draw: [
+          (u) => {
+            // Draw alarm-colored line segments and threshold lines
+            const ctx = u.ctx;
+            const { left, top, width, height } = u.bbox;
+
+            variables.forEach((v, idx) => {
+              if (!v.alarmEnabled) return;
+
+              const seriesIdx = idx + 1;
+              const seriesData = u.data[seriesIdx];
+              const timestamps = u.data[0];
+
+              if (!seriesData || seriesData.length === 0) return;
+
+              const minAlarm = v.minAlarm !== null && v.minAlarm !== undefined ? parseFloat(v.minAlarm) : null;
+              const maxAlarm = v.maxAlarm !== null && v.maxAlarm !== undefined ? parseFloat(v.maxAlarm) : null;
+
+              ctx.save();
+
+              // Clip to chart area
+              ctx.beginPath();
+              ctx.rect(left, top, width, height);
+              ctx.clip();
+
+              // Draw red line segments where values exceed thresholds
+              ctx.strokeStyle = '#ef4444';
+              ctx.lineWidth = 2.5;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+
+              // Helper to check if value is in alarm
+              const isInAlarm = (val) => {
+                if (maxAlarm !== null && val > maxAlarm) return true;
+                if (minAlarm !== null && val < minAlarm) return true;
+                return false;
+              };
+
+              // Helper to find crossing point with a threshold
+              const findCrossing = (v1, v2, threshold, x1, x2, y1, y2) => {
+                const ratio = (threshold - v1) / (v2 - v1);
+                return {
+                  x: x1 + ratio * (x2 - x1),
+                  y: y1 + ratio * (y2 - y1),
+                  val: threshold
+                };
+              };
+
+              for (let i = 0; i < seriesData.length - 1; i++) {
+                const val1 = seriesData[i];
+                const val2 = seriesData[i + 1];
+
+                if (val1 === null || val2 === null) continue;
+
+                const x1 = u.valToPos(timestamps[i], 'x', true);
+                const x2 = u.valToPos(timestamps[i + 1], 'x', true);
+
+                if (x2 < left || x1 > left + width) continue;
+
+                const y1 = u.valToPos(val1, 'y', true);
+                const y2 = u.valToPos(val2, 'y', true);
+
+                const inAlarm1 = isInAlarm(val1);
+                const inAlarm2 = isInAlarm(val2);
+
+                // Collect all threshold crossings in this segment
+                const crossings = [];
+
+                // Check max threshold crossing
+                if (maxAlarm !== null) {
+                  const crosses = (val1 > maxAlarm) !== (val2 > maxAlarm);
+                  if (crosses) {
+                    crossings.push(findCrossing(val1, val2, maxAlarm, x1, x2, y1, y2));
+                  }
+                }
+
+                // Check min threshold crossing
+                if (minAlarm !== null) {
+                  const crosses = (val1 < minAlarm) !== (val2 < minAlarm);
+                  if (crosses) {
+                    crossings.push(findCrossing(val1, val2, minAlarm, x1, x2, y1, y2));
+                  }
+                }
+
+                // Sort crossings by x position
+                crossings.sort((a, b) => a.x - b.x);
+
+                // Draw alarm portions
+                if (crossings.length === 0) {
+                  // No crossings - draw full segment if in alarm
+                  if (inAlarm1 && inAlarm2) {
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                  }
+                } else if (crossings.length === 1) {
+                  // One crossing
+                  const cross = crossings[0];
+                  if (inAlarm1) {
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(cross.x, cross.y);
+                    ctx.stroke();
+                  }
+                  if (inAlarm2) {
+                    ctx.beginPath();
+                    ctx.moveTo(cross.x, cross.y);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                  }
+                } else if (crossings.length === 2) {
+                  // Two crossings (segment goes through both thresholds)
+                  const cross1 = crossings[0];
+                  const cross2 = crossings[1];
+
+                  if (inAlarm1) {
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(cross1.x, cross1.y);
+                    ctx.stroke();
+                  }
+                  // Middle section - check if it's in alarm
+                  const midVal = (cross1.val + cross2.val) / 2;
+                  if (isInAlarm(midVal)) {
+                    ctx.beginPath();
+                    ctx.moveTo(cross1.x, cross1.y);
+                    ctx.lineTo(cross2.x, cross2.y);
+                    ctx.stroke();
+                  }
+                  if (inAlarm2) {
+                    ctx.beginPath();
+                    ctx.moveTo(cross2.x, cross2.y);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                  }
+                }
+              }
+
+              ctx.restore();
+
+              // Draw threshold lines
+              ctx.save();
+              ctx.setLineDash([6, 4]);
+              ctx.strokeStyle = '#ef4444';
+              ctx.lineWidth = 1.5;
+
+              if (minAlarm !== null) {
+                const y = u.valToPos(minAlarm, 'y', true);
+                if (y >= top && y <= top + height) {
+                  ctx.beginPath();
+                  ctx.moveTo(left, y);
+                  ctx.lineTo(left + width, y);
+                  ctx.stroke();
+
+                  ctx.setLineDash([]);
+                  ctx.fillStyle = '#ef4444';
+                  ctx.font = '10px system-ui';
+                  ctx.fillText(`Min: ${minAlarm}`, left + 5, y - 4);
+                }
+              }
+
+              if (maxAlarm !== null) {
+                const y = u.valToPos(maxAlarm, 'y', true);
+                if (y >= top && y <= top + height) {
+                  ctx.setLineDash([6, 4]);
+                  ctx.beginPath();
+                  ctx.moveTo(left, y);
+                  ctx.lineTo(left + width, y);
+                  ctx.stroke();
+
+                  ctx.setLineDash([]);
+                  ctx.fillStyle = '#ef4444';
+                  ctx.font = '10px system-ui';
+                  ctx.fillText(`Max: ${maxAlarm}`, left + 5, y + 12);
+                }
+              }
+
+              ctx.restore();
+            });
+          }
+        ],
         setSelect: [
           (u) => {
             if (u.select.width > 10) {

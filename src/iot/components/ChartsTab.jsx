@@ -67,6 +67,10 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
         category: sensorType.category || 'general',
         color: sensorType.color || '#6b7280',
         unit: config.unit || '',
+        // Alarm thresholds for chart visualization
+        alarmEnabled: config.alarm_enabled,
+        minAlarm: config.min_alarm,
+        maxAlarm: config.max_alarm,
       };
     });
   }, [sensorConfigs, todayLogs]);
@@ -472,10 +476,14 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
                   variables={chart.variables.map(v => {
                     const settingsKey = `${chart.id}-${v.key}`;
                     const settings = yAxisSettings[settingsKey] || {};
+                    // Default showAlarmThresholds to true if not explicitly set
+                    const showThresholds = settings.showAlarmThresholds !== undefined ? settings.showAlarmThresholds : true;
                     return {
                       ...v,
                       yMin: settings.customRange ? settings.min : undefined,
                       yMax: settings.customRange ? settings.max : undefined,
+                      // Only show alarm if enabled AND showAlarmThresholds is true
+                      alarmEnabled: v.alarmEnabled && showThresholds,
                     };
                   })}
                   height={350}
@@ -498,12 +506,19 @@ const YAxisPopover = ({ variable, settings, onApply, onClose }) => {
   const [customRange, setCustomRange] = useState(settings.customRange || false);
   const [min, setMin] = useState(settings.min ?? '');
   const [max, setMax] = useState(settings.max ?? '');
+  // Default to true (show thresholds) if alarm is enabled
+  const [showAlarmThresholds, setShowAlarmThresholds] = useState(
+    settings.showAlarmThresholds !== undefined ? settings.showAlarmThresholds : true
+  );
+
+  const hasAlarm = variable.alarmEnabled && (variable.minAlarm !== null || variable.maxAlarm !== null);
 
   const handleApply = () => {
     onApply({
       customRange,
       min: customRange ? parseFloat(min) : undefined,
       max: customRange ? parseFloat(max) : undefined,
+      showAlarmThresholds,
     });
   };
 
@@ -544,6 +559,21 @@ const YAxisPopover = ({ variable, settings, onApply, onClose }) => {
           />
         </div>
       </div>
+      {hasAlarm && (
+        <div className="chart-popover-row" style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e5e7eb' }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={showAlarmThresholds}
+              onChange={(e) => setShowAlarmThresholds(e.target.checked)}
+            />
+            Show alarm thresholds
+          </label>
+          <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+            Min: {variable.minAlarm ?? 'N/A'}, Max: {variable.maxAlarm ?? 'N/A'}
+          </div>
+        </div>
+      )}
       <button className="chart-popover-apply" onClick={handleApply}>
         Apply
       </button>
