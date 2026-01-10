@@ -112,17 +112,6 @@ const SensorReadingCard = ({
           todayOnly={false}
         />
       </div>
-
-      <div className={`sensor-reading-card__trend sensor-reading-card__trend--${trend.direction}`}>
-        {trend.direction === 'up' && <i className="bi bi-arrow-up"></i>}
-        {trend.direction === 'down' && <i className="bi bi-arrow-down"></i>}
-        {trend.direction === 'stable' && <i className="bi bi-arrow-right"></i>}
-        <span>
-          {trend.direction === 'stable'
-            ? 'stable'
-            : `${trend.change > 0 ? '+' : ''}${formatValue(trend.change, '')}${unit}`}
-        </span>
-      </div>
     </div>
   );
 };

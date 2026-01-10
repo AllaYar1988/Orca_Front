@@ -737,6 +737,9 @@
   align-items: center;
   justify-content: center;
   min-width: 80px;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .sensor-reading-card__chart .u-wrap {
@@ -783,7 +786,7 @@
 /* Sensor Reading Grid */
 .sensor-reading-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
 }
 

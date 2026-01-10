@@ -423,7 +423,7 @@ const DashboardTab = ({ device, logs, onRefresh, isRefreshing, lastUpdate }) => 
               <p>No sensor data available yet.<br />Connect your device to see real-time readings.</p>
             </div>
           ) : (
-            <div className="sensor-reading-list">
+            <div className="sensor-reading-grid">
               {sensorReadings.map(reading => (
                 <SensorReadingCard
                   key={reading.key}
