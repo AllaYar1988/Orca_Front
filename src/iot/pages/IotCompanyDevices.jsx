@@ -45,7 +45,7 @@ const IotCompanyDevices = () => {
       location: device.location || device.description || "",
       status: device.is_online ? "online" : "offline",
       battery: device.battery_level,
-      lastSeen: device.last_seen_at || device.updated_at,
+      seconds_ago: device.seconds_ago,
       serialNumber: device.serial_number,
       deviceType: device.device_type,
       companyId: companyId,
@@ -69,7 +69,7 @@ const IotCompanyDevices = () => {
               const statusRes = await getDevicesStatus({ company_id: companyId });
               if (statusRes.success) {
                 statusRes.devices.forEach(d => {
-                  statusMap[d.id] = d.is_online;
+                  statusMap[d.id] = { is_online: d.is_online, seconds_ago: d.seconds_ago };
                 });
               }
             } catch {
@@ -79,9 +79,10 @@ const IotCompanyDevices = () => {
 
           const devicesWithParams = [];
           for (const device of rawDevices) {
-            // Update is_online from status API if available
+            // Update is_online and seconds_ago from status API if available
             if (statusMap[device.id] !== undefined) {
-              device.is_online = statusMap[device.id];
+              device.is_online = statusMap[device.id].is_online;
+              device.seconds_ago = statusMap[device.id].seconds_ago;
             }
 
             try {
