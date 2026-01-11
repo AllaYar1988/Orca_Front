@@ -12,19 +12,29 @@ import '../styles/sensor-components.css';
 import '../styles/charts.css';
 
 /**
- * Get start of today in ISO format
+ * Get today's date as YYYY-MM-DD string
+ * The backend filters logs by this date in device's timezone
  */
-const getTodayStart = () => {
+const getTodayDate = () => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today.toISOString();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 /**
- * Get current time in ISO format
+ * Get start of today as datetime string for API
  */
-const getNow = () => {
-  return new Date().toISOString();
+const getTodayStart = () => {
+  return `${getTodayDate()} 00:00:00`;
+};
+
+/**
+ * Get end of today as datetime string for API
+ */
+const getTodayEnd = () => {
+  return `${getTodayDate()} 23:59:59`;
 };
 
 const IotDeviceView = () => {
@@ -115,7 +125,7 @@ const IotDeviceView = () => {
 
       // New data exists - fetch it
       const from = lastFetchTime.current;
-      const to = getNow();
+      const to = getTodayEnd();
 
       const [deviceRes, logsRes] = await Promise.all([
         getDeviceDetails(deviceId),
@@ -152,7 +162,7 @@ const IotDeviceView = () => {
       if (!device) return;
       try {
         const from = getTodayStart();
-        const to = getNow();
+        const to = getTodayEnd();
 
         // Fetch logs and last update timestamp in parallel
         const [logsRes, updateRes] = await Promise.all([
@@ -236,8 +246,13 @@ const IotDeviceView = () => {
     );
   }
 
-  // Calculate actual online status based on last update time
-  const deviceOnlineStatus = checkDeviceOnline(lastUpdate || device.last_seen_at);
+  // Use device.is_online from API for consistent status across all views
+  // Calculate time ago for display purposes
+  const lastUpdateInfo = checkDeviceOnline(lastUpdate || device.last_seen_at);
+  const deviceOnlineStatus = {
+    isOnline: device.is_online,
+    minutesAgo: lastUpdateInfo.minutesAgo
+  };
 
   return (
     <IotLayout>
@@ -900,6 +915,11 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
               {isToday && (
                 <span className="live-badge">
                   <span className="live-dot"></span> Live
+                </span>
+              )}
+              {!isToday && (
+                <span className="iot-badge" style={{ background: '#f1f5f9', color: '#64748b' }}>
+                  Historical
                 </span>
               )}
               {totalCount > EXPORT_LIMIT && (
