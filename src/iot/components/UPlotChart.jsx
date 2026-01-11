@@ -3,6 +3,7 @@
 import { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
+import '../styles/charts.css';
 
 // Chart color palette for multiple series (red reserved for alarms)
 const CHART_COLORS = [
@@ -31,16 +32,6 @@ function hexToRgba(hex, alpha) {
 /**
  * Format timestamp for display
  */
-function formatTime(timestamp) {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDateTime(timestamp) {
-  const date = new Date(timestamp);
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
-    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 /**
  * UPlotChart Component
@@ -60,13 +51,12 @@ const UPlotChart = ({
   onZoom = null,
   zoomRange = null,
   className = '',
+  syncKey = null, // Cursor sync key - charts with same key sync cursors
 }) => {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const [chartWidth, setChartWidth] = useState(0);
   const [isReady, setIsReady] = useState(false);
-  const [tooltip, setTooltip] = useState(null);
-  const isMouseOverRef = useRef(false);
 
   // Measure container width with ResizeObserver
   useEffect(() => {
@@ -207,7 +197,7 @@ const UPlotChart = ({
       cursor: {
         show: true,
         x: true,
-        y: true,
+        y: false, // No horizontal cursor line
         points: {
           show: true,
           size: 8,
@@ -219,7 +209,11 @@ const UPlotChart = ({
           x: true,
           y: false,
           setScale: true,
-        }
+        },
+        sync: syncKey ? {
+          key: syncKey,
+          setSeries: true,
+        } : undefined,
       },
       select: {
         show: true,
@@ -424,46 +418,12 @@ const UPlotChart = ({
             }
           }
         ],
-        setCursor: [
-          (u) => {
-            if (!isMouseOverRef.current) {
-              setTooltip(null);
-              return;
-            }
-
-            const { idx, left, top } = u.cursor;
-
-            if (left === undefined || left < 0 || left > u.width) {
-              setTooltip(null);
-              return;
-            }
-
-            if (idx !== null && idx !== undefined && u.data[0][idx] !== undefined) {
-              const timestamp = u.data[0][idx] * 1000;
-              const values = variables.map((v, i) => ({
-                label: v.label || v.key,
-                value: u.data[i + 1][idx],
-                color: v.color || CHART_COLORS[i % CHART_COLORS.length],
-                unit: v.unit || '',
-              })).filter(v => v.value !== null);
-
-              setTooltip({
-                time: formatDateTime(timestamp),
-                values,
-                left: Math.min(left, chartWidth - 200),
-                top: 10,
-              });
-            } else {
-              setTooltip(null);
-            }
-          }
-        ]
       },
       legend: {
         show: showLegend,
       }
     };
-  }, [chartWidth, height, variables, showLegend, onZoom]);
+  }, [chartWidth, height, variables, showLegend, onZoom, syncKey]);
 
   // Initialize/update chart
   useEffect(() => {
@@ -478,24 +438,7 @@ const UPlotChart = ({
     const opts = buildOptions();
     chartRef.current = new uPlot(opts, uplotData, containerRef.current);
 
-    // Track mouse events
-    const over = chartRef.current.over;
-
-    const handleMouseEnter = () => {
-      isMouseOverRef.current = true;
-    };
-
-    const handleMouseLeave = () => {
-      isMouseOverRef.current = false;
-      setTooltip(null);
-    };
-
-    over.addEventListener('mouseenter', handleMouseEnter);
-    over.addEventListener('mouseleave', handleMouseLeave);
-
     return () => {
-      over.removeEventListener('mouseenter', handleMouseEnter);
-      over.removeEventListener('mouseleave', handleMouseLeave);
       if (chartRef.current) {
         chartRef.current.destroy();
         chartRef.current = null;
@@ -557,27 +500,6 @@ const UPlotChart = ({
           visibility: isReady ? 'visible' : 'hidden'
         }}
       />
-
-      {/* Tooltip */}
-      {tooltip && (
-        <div
-          className="chart-tooltip"
-          style={{
-            position: 'absolute',
-            left: `${tooltip.left}px`,
-            top: `${tooltip.top}px`,
-            pointerEvents: 'none',
-            zIndex: 100,
-          }}
-        >
-          <p className="chart-tooltip-date">{tooltip.time}</p>
-          {tooltip.values.map((v, i) => (
-            <p key={i} style={{ color: v.color }}>
-              <strong>{v.label}:</strong> {v.value?.toFixed(2)} {v.unit}
-            </p>
-          ))}
-        </div>
-      )}
     </div>
   );
 };

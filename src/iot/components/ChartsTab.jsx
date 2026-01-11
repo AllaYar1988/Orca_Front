@@ -30,6 +30,12 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
   const [charts, setCharts] = useState([]);
   const [chartIdCounter, setChartIdCounter] = useState(0);
 
+  // Shared zoom state for all charts (synced zoom)
+  const [sharedZoomRange, setSharedZoomRange] = useState(null);
+
+  // Sync key for cursor synchronization across charts
+  const CHART_SYNC_KEY = 'iot-charts-sync';
+
   // Data loading state
   const [chartData, setChartData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -191,20 +197,14 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
     }).filter(Boolean));
   };
 
-  // Handle zoom on a chart
+  // Handle zoom on a chart - syncs to all charts
   const handleZoom = (chartId, range) => {
-    setCharts(prev => prev.map(chart => {
-      if (chart.id !== chartId) return chart;
-      return { ...chart, zoomRange: range };
-    }));
+    setSharedZoomRange(range);
   };
 
-  // Reset zoom on a chart
-  const resetZoom = (chartId) => {
-    setCharts(prev => prev.map(chart => {
-      if (chart.id !== chartId) return chart;
-      return { ...chart, zoomRange: null };
-    }));
+  // Reset zoom on all charts
+  const resetZoom = () => {
+    setSharedZoomRange(null);
   };
 
   // Update chart data when date range changes
@@ -244,16 +244,6 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
   return (
     <div className="iot-charts-tab">
       <div className="charts-wrapper">
-        {/* Header */}
-        <div className="charts-header">
-          <div className="charts-title-section">
-            <span className="charts-label">Device Charts</span>
-            <h2 className="charts-title">
-              <i className="bi bi-graph-up-arrow"></i> Variable Explorer
-            </h2>
-          </div>
-        </div>
-
         {/* Controls Section */}
         <div className="charts-controls-section">
           {/* Date Range */}
@@ -405,10 +395,10 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
                     Chart {chart.id}
                   </h3>
                   <div className="chart-actions">
-                    {chart.zoomRange && (
+                    {sharedZoomRange && (
                       <button
                         className="reset-zoom-button"
-                        onClick={() => resetZoom(chart.id)}
+                        onClick={resetZoom}
                       >
                         <i className="bi bi-arrows-angle-expand reset-zoom-icon"></i>
                         <span className="reset-zoom-text">Reset Zoom</span>
@@ -488,7 +478,8 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
                   })}
                   height={350}
                   onZoom={(range) => handleZoom(chart.id, range)}
-                  zoomRange={chart.zoomRange}
+                  zoomRange={sharedZoomRange}
+                  syncKey={CHART_SYNC_KEY}
                 />
               </div>
             ))
