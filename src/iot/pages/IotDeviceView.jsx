@@ -294,14 +294,9 @@ const IotDeviceView = () => {
                 <span className="live-indicator__text">{deviceOnlineStatus.isOnline ? 'Live' : 'Offline'}</span>
               </div>
             </div>
-            {lastUpdate && (
+            {(lastUpdate || device.last_seen_at) && (
               <span className="live-indicator__time">
-                Last updated: {deviceOnlineStatus.minutesAgo === 0
-                  ? 'just now'
-                  : deviceOnlineStatus.minutesAgo < 60
-                    ? `${deviceOnlineStatus.minutesAgo} min ago`
-                    : `${Math.floor(deviceOnlineStatus.minutesAgo / 60)}h ${deviceOnlineStatus.minutesAgo % 60}m ago`
-                }
+                Last updated: {formatLastUpdate(lastUpdate || device.last_seen_at)}
               </span>
             )}
           </div>
@@ -489,6 +484,54 @@ const checkReadingAlarm = (reading) => {
     return true;
   }
   return false;
+};
+
+/**
+ * Format last update time for display
+ * Shows relative time like "just now", "5 min ago", "2h 30m ago", or date if older
+ */
+const formatLastUpdate = (timestamp) => {
+  if (!timestamp) return 'Unknown';
+
+  // Parse timestamp
+  let updateTime;
+  const dateStr = String(timestamp);
+
+  // Handle different timestamp formats
+  if (dateStr.includes('T') && !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) {
+    updateTime = new Date(dateStr + 'Z').getTime();
+  } else {
+    updateTime = new Date(timestamp).getTime();
+  }
+
+  const now = Date.now();
+  const diffMs = now - updateTime;
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  // Handle future timestamps (clock sync issues)
+  if (diffMs < 0) {
+    return 'just now';
+  }
+
+  if (diffSeconds < 60) {
+    return 'just now';
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes} min ago`;
+  }
+  if (diffHours < 24) {
+    const mins = diffMinutes % 60;
+    return mins > 0 ? `${diffHours}h ${mins}m ago` : `${diffHours}h ago`;
+  }
+  if (diffDays < 7) {
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  }
+
+  // More than a week - show date
+  return new Date(updateTime).toLocaleDateString();
 };
 
 /**
