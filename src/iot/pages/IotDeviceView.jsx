@@ -70,18 +70,24 @@ const IotDeviceView = () => {
   const lastFetchTime = useRef(null);
   const lastKnownUpdate = useRef(null); // Track backend's last_update timestamp
 
-  // Fetch device details and sensor configs on initial load
+  // Fetch device details, sensor configs, and status on initial load
   useEffect(() => {
     const fetchDeviceAndConfigs = async () => {
       try {
-        // Fetch device details and sensor configs in parallel
-        const [deviceRes, sensorConfigRes] = await Promise.all([
+        // Fetch device details, sensor configs, and status in parallel
+        const [deviceRes, sensorConfigRes, statusRes] = await Promise.all([
           getDeviceDetails(deviceId),
-          getSensorConfigs(deviceId)
+          getSensorConfigs(deviceId),
+          getDeviceLastUpdate(deviceId)
         ]);
 
         if (deviceRes.success) {
-          setDevice(deviceRes.device);
+          // Merge device details with accurate is_online from status API
+          const deviceData = deviceRes.device;
+          if (statusRes.success) {
+            deviceData.is_online = statusRes.is_online;
+          }
+          setDevice(deviceData);
         } else {
           setError(deviceRes.error || 'Failed to load device');
         }
@@ -133,7 +139,10 @@ const IotDeviceView = () => {
       ]);
 
       if (deviceRes.success) {
-        setDevice(deviceRes.device);
+        // Merge device details with accurate is_online from updateCheck
+        const deviceData = deviceRes.device;
+        deviceData.is_online = updateCheck.is_online;
+        setDevice(deviceData);
       }
 
       if (logsRes.success && logsRes.logs && logsRes.logs.length > 0) {
