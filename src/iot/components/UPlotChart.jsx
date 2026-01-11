@@ -549,4 +549,43 @@ const UPlotChart = ({
   );
 };
 
-export default memo(UPlotChart);
+// Custom comparison function for memo to prevent unnecessary re-renders
+const arePropsEqual = (prevProps, nextProps) => {
+  // Only re-render if these critical props change
+  if (prevProps.height !== nextProps.height) return false;
+  if (prevProps.showLegend !== nextProps.showLegend) return false;
+  if (prevProps.syncKey !== nextProps.syncKey) return false;
+  if (prevProps.className !== nextProps.className) return false;
+
+  // Compare zoom range
+  if (prevProps.zoomRange?.min !== nextProps.zoomRange?.min ||
+      prevProps.zoomRange?.max !== nextProps.zoomRange?.max) return false;
+
+  // Compare data length and timestamps (shallow check for performance)
+  if (prevProps.data?.length !== nextProps.data?.length) return false;
+
+  // Compare variables by key (most common change)
+  const prevKeys = prevProps.variables?.map(v => v.key).join(',') || '';
+  const nextKeys = nextProps.variables?.map(v => v.key).join(',') || '';
+  if (prevKeys !== nextKeys) return false;
+
+  // Compare y-axis settings for each variable
+  const prevYSettings = prevProps.variables?.map(v => `${v.yMin}-${v.yMax}-${v.alarmEnabled}`).join(',') || '';
+  const nextYSettings = nextProps.variables?.map(v => `${v.yMin}-${v.yMax}-${v.alarmEnabled}`).join(',') || '';
+  if (prevYSettings !== nextYSettings) return false;
+
+  // If data arrays exist, do a shallow check on first and last items
+  if (prevProps.data?.length > 0 && nextProps.data?.length > 0) {
+    const prevFirst = prevProps.data[0];
+    const nextFirst = nextProps.data[0];
+    const prevLast = prevProps.data[prevProps.data.length - 1];
+    const nextLast = nextProps.data[nextProps.data.length - 1];
+
+    if (prevFirst?.logged_at !== nextFirst?.logged_at ||
+        prevLast?.logged_at !== nextLast?.logged_at) return false;
+  }
+
+  return true; // Props are equal, skip re-render
+};
+
+export default memo(UPlotChart, arePropsEqual);

@@ -1,9 +1,154 @@
 // ChartsTab Component - Full chart visualization with Hawk-style design
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import { getDeviceLogsRange } from '../api/devices';
 import UPlotChart from './UPlotChart';
 import { SENSOR_TYPES, CATEGORIES, getSensorConfig } from '../config/sensorTypes';
 import '../styles/charts.css';
+
+// Cache keys for sessionStorage
+const CHARTS_CACHE_KEY = 'iot-charts-cache';
+const CHARTS_STATE_KEY = 'iot-charts-state';
+
+/**
+ * Get cache from sessionStorage
+ */
+const getCache = () => {
+  try {
+    const cached = sessionStorage.getItem(CHARTS_CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch {
+    sessionStorage.removeItem(CHARTS_CACHE_KEY);
+  }
+  return {};
+};
+
+/**
+ * Save data to cache
+ */
+const saveToCache = (deviceId, dateKey, data) => {
+  try {
+    const cache = getCache();
+    if (!cache[deviceId]) {
+      cache[deviceId] = {};
+    }
+    cache[deviceId][dateKey] = {
+      data,
+      timestamp: Date.now()
+    };
+    sessionStorage.setItem(CHARTS_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Cache save error - storage might be full
+  }
+};
+
+/**
+ * Get data from cache if valid
+ */
+const getFromCache = (deviceId, dateKey) => {
+  const cache = getCache();
+  const deviceCache = cache[deviceId]?.[dateKey];
+
+  if (!deviceCache) return null;
+
+  // Cache valid for 10 minutes
+  const CACHE_TTL = 10 * 60 * 1000;
+  if (Date.now() - deviceCache.timestamp > CACHE_TTL) {
+    return null;
+  }
+
+  return deviceCache.data;
+};
+
+/**
+ * Get chart state from sessionStorage (for navigation persistence)
+ */
+const getChartState = (deviceId) => {
+  try {
+    const stored = sessionStorage.getItem(CHARTS_STATE_KEY);
+    if (stored) {
+      const allState = JSON.parse(stored);
+      return allState[deviceId] || null;
+    }
+  } catch {
+    sessionStorage.removeItem(CHARTS_STATE_KEY);
+  }
+  return null;
+};
+
+/**
+ * Save chart state to sessionStorage (for navigation persistence)
+ */
+const saveChartState = (deviceId, state) => {
+  try {
+    const stored = sessionStorage.getItem(CHARTS_STATE_KEY);
+    const allState = stored ? JSON.parse(stored) : {};
+    allState[deviceId] = {
+      ...state,
+      timestamp: Date.now()
+    };
+    sessionStorage.setItem(CHARTS_STATE_KEY, JSON.stringify(allState));
+  } catch {
+    // Storage might be full
+  }
+};
+
+/**
+ * LazyChart - Only renders chart when visible in viewport
+ * Inspired by Hawk's advance page implementation
+ */
+const LazyChart = memo(({ children, height }) => {
+  const containerRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [hasBeenVisible, setHasBeenVisible] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const visible = entry.isIntersecting;
+        setIsVisible(visible);
+        if (visible) {
+          setHasBeenVisible(true);
+        }
+      },
+      {
+        root: null,
+        rootMargin: '100px', // Start loading 100px before visible
+        threshold: 0
+      }
+    );
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ minHeight: height }}>
+      {(isVisible || hasBeenVisible) ? (
+        children
+      ) : (
+        <div
+          className="chart-placeholder"
+          style={{
+            height,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#f9fafb',
+            borderRadius: '8px',
+            color: '#9ca3af'
+          }}
+        >
+          Loading chart...
+        </div>
+      )}
+    </div>
+  );
+});
 
 /**
  * ChartsTab - Advanced chart visualization component
@@ -19,19 +164,23 @@ import '../styles/charts.css';
 const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
   // Date range state
   const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo, setDateTo] = useState(today);
+
+  // Try to restore state from sessionStorage
+  const savedState = useMemo(() => getChartState(deviceId), [deviceId]);
+
+  const [dateFrom, setDateFrom] = useState(() => savedState?.dateFrom || today);
+  const [dateTo, setDateTo] = useState(() => savedState?.dateTo || today);
 
   // Category and variable selection
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeCategory, setActiveCategory] = useState(() => savedState?.activeCategory || 'all');
   const [selectedVariables, setSelectedVariables] = useState([]);
 
-  // Charts state
-  const [charts, setCharts] = useState([]);
-  const [chartIdCounter, setChartIdCounter] = useState(0);
+  // Charts state - restore from saved state if available
+  const [charts, setCharts] = useState(() => savedState?.charts || []);
+  const [chartIdCounter, setChartIdCounter] = useState(() => savedState?.chartIdCounter || 0);
 
   // Shared zoom state for all charts (synced zoom)
-  const [sharedZoomRange, setSharedZoomRange] = useState(null);
+  const [sharedZoomRange, setSharedZoomRange] = useState(() => savedState?.sharedZoomRange || null);
 
   // Sync key for cursor synchronization across charts
   const CHART_SYNC_KEY = 'iot-charts-sync';
@@ -41,9 +190,32 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // Y-axis settings
-  const [yAxisSettings, setYAxisSettings] = useState({});
+  // Y-axis settings - restore from saved state
+  const [yAxisSettings, setYAxisSettings] = useState(() => savedState?.yAxisSettings || {});
   const [activePopover, setActivePopover] = useState(null);
+
+  // Keep refs for state to save on unmount
+  const stateRef = useRef({});
+  useEffect(() => {
+    stateRef.current = {
+      dateFrom,
+      dateTo,
+      activeCategory,
+      charts,
+      chartIdCounter,
+      sharedZoomRange,
+      yAxisSettings
+    };
+  });
+
+  // Save state to sessionStorage on unmount (for navigation persistence)
+  useEffect(() => {
+    return () => {
+      if (deviceId && stateRef.current.charts?.length > 0) {
+        saveChartState(deviceId, stateRef.current);
+      }
+    };
+  }, [deviceId]);
 
   // Get available variables from sensor configs
   const availableVariables = useMemo(() => {
@@ -114,16 +286,29 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
   const isToday = dateFrom === today && dateTo === today;
 
   // Fetch chart data when date range changes or new chart is added
+  // Uses sessionStorage cache for historical data (like Hawk's advance page)
   const fetchChartData = useCallback(async (chartVariables) => {
     if (!chartVariables || chartVariables.length === 0) return [];
 
     if (isToday) {
-      // Use today's logs from parent
+      // Use today's logs from parent - always fresh for live data
       const keys = chartVariables.map(v => v.key);
       return todayLogs.filter(l => keys.includes(l.log_key));
     }
 
-    // Fetch historical data
+    // Check cache for historical data
+    const dateKey = `${dateFrom}_${dateTo}`;
+    const cachedData = getFromCache(deviceId, dateKey);
+    if (cachedData) {
+      // Filter cached data for requested variables
+      const keys = chartVariables.map(v => v.key);
+      const filteredData = cachedData.filter(l => keys.includes(l.log_key));
+      if (filteredData.length > 0) {
+        return filteredData;
+      }
+    }
+
+    // Fetch historical data from API
     setLoading(true);
     setLoadingProgress(0);
 
@@ -138,7 +323,15 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
       setLoadingProgress(100);
 
       if (response.success) {
-        return response.logs || [];
+        const logs = response.logs || [];
+
+        // Save to cache for future requests
+        // Only cache if we have data and it's not today (historical data doesn't change)
+        if (logs.length > 0) {
+          saveToCache(deviceId, dateKey, logs);
+        }
+
+        return logs;
       }
     } catch (err) {
       console.error('Failed to fetch chart data:', err);
@@ -460,27 +653,29 @@ const ChartsTab = ({ device, logs: todayLogs, sensorConfigs, deviceId }) => {
                   })}
                 </div>
 
-                {/* Chart */}
-                <UPlotChart
-                  data={chart.data}
-                  variables={chart.variables.map(v => {
-                    const settingsKey = `${chart.id}-${v.key}`;
-                    const settings = yAxisSettings[settingsKey] || {};
-                    // Default showAlarmThresholds to true if not explicitly set
-                    const showThresholds = settings.showAlarmThresholds !== undefined ? settings.showAlarmThresholds : true;
-                    return {
-                      ...v,
-                      yMin: settings.customRange ? settings.min : undefined,
-                      yMax: settings.customRange ? settings.max : undefined,
-                      // Only show alarm if enabled AND showAlarmThresholds is true
-                      alarmEnabled: v.alarmEnabled && showThresholds,
-                    };
-                  })}
-                  height={350}
-                  onZoom={(range) => handleZoom(chart.id, range)}
-                  zoomRange={sharedZoomRange}
-                  syncKey={CHART_SYNC_KEY}
-                />
+                {/* Chart - wrapped in LazyChart for performance */}
+                <LazyChart height={350}>
+                  <UPlotChart
+                    data={chart.data}
+                    variables={chart.variables.map(v => {
+                      const settingsKey = `${chart.id}-${v.key}`;
+                      const settings = yAxisSettings[settingsKey] || {};
+                      // Default showAlarmThresholds to true if not explicitly set
+                      const showThresholds = settings.showAlarmThresholds !== undefined ? settings.showAlarmThresholds : true;
+                      return {
+                        ...v,
+                        yMin: settings.customRange ? settings.min : undefined,
+                        yMax: settings.customRange ? settings.max : undefined,
+                        // Only show alarm if enabled AND showAlarmThresholds is true
+                        alarmEnabled: v.alarmEnabled && showThresholds,
+                      };
+                    })}
+                    height={350}
+                    onZoom={(range) => handleZoom(chart.id, range)}
+                    zoomRange={sharedZoomRange}
+                    syncKey={CHART_SYNC_KEY}
+                  />
+                </LazyChart>
               </div>
             ))
           )}
