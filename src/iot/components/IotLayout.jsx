@@ -18,9 +18,47 @@ const IotLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Close mobile menu on route change
+  // Close mobile menu on route change and auto-expand the active company
   useEffect(() => {
     setMobileMenuOpen(false);
+
+    // Check if we're on a device page and auto-expand that company (keep others as they are)
+    const deviceMatch = location.pathname.match(/\/iot\/device\/(\d+)\/(\d+)/);
+    const companyMatch = location.pathname.match(/\/iot\/company\/(\d+)/);
+
+    if (deviceMatch) {
+      const activeCompanyId = parseInt(deviceMatch[1]);
+      // Expand the active company (keep others unchanged)
+      setExpandedCompanies(prev => ({ ...prev, [activeCompanyId]: true }));
+
+      // Fetch devices for this company if not loaded
+      if (!companyDevices[activeCompanyId]) {
+        getCompanyDevices(activeCompanyId).then(data => {
+          if (data.success) {
+            setCompanyDevices(prev => ({
+              ...prev,
+              [activeCompanyId]: data.devices || []
+            }));
+          }
+        });
+      }
+    } else if (companyMatch) {
+      const activeCompanyId = parseInt(companyMatch[1]);
+      // Expand the active company (keep others unchanged)
+      setExpandedCompanies(prev => ({ ...prev, [activeCompanyId]: true }));
+
+      // Fetch devices for this company if not loaded
+      if (!companyDevices[activeCompanyId]) {
+        getCompanyDevices(activeCompanyId).then(data => {
+          if (data.success) {
+            setCompanyDevices(prev => ({
+              ...prev,
+              [activeCompanyId]: data.devices || []
+            }));
+          }
+        });
+      }
+    }
   }, [location.pathname]);
 
   // Fetch user's companies on mount
@@ -70,7 +108,7 @@ const IotLayout = ({ children }) => {
   };
 
   const handleDeviceClick = (companyId, deviceId) => {
-    navigate(`/iot/device/${companyId}/${deviceId}`);
+    navigate(`/iot/device/${companyId}/${deviceId}?tab=dashboard`);
   };
 
   const isCompanyActive = (companyId) => {
@@ -78,7 +116,7 @@ const IotLayout = ({ children }) => {
   };
 
   const isDeviceActive = (companyId, deviceId) => {
-    return location.pathname === `/iot/device/${companyId}/${deviceId}`;
+    return location.pathname.startsWith(`/iot/device/${companyId}/${deviceId}`);
   };
 
   return (
@@ -167,16 +205,19 @@ const IotLayout = ({ children }) => {
                         ) : companyDevices[company.id].length === 0 ? (
                           <li className="iot-device-empty">No devices</li>
                         ) : (
-                          companyDevices[company.id].map(device => (
-                            <li
-                              key={device.id}
-                              className={`iot-device-item ${isDeviceActive(company.id, device.id) ? 'active' : ''}`}
-                              onClick={() => handleDeviceClick(company.id, device.id)}
-                            >
-                              <i className={`bi bi-${device.is_online ? 'circle-fill text-success' : 'circle text-muted'}`}></i>
-                              <span>{device.name}</span>
-                            </li>
-                          ))
+                          companyDevices[company.id].map(device => {
+                            const isActive = isDeviceActive(company.id, device.id);
+                            return (
+                              <li
+                                key={device.id}
+                                className={`iot-device-item ${isActive ? 'active' : ''}`}
+                                onClick={() => handleDeviceClick(company.id, device.id)}
+                              >
+                                <i className={`bi bi-${isActive ? 'circle-fill' : 'circle'}`}></i>
+                                <span>{device.name}</span>
+                              </li>
+                            );
+                          })
                         )}
                       </ul>
                     )}

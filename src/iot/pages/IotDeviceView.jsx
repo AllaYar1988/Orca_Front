@@ -38,6 +38,14 @@ const IotDeviceView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Sync activeTab with URL search params when they change
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') || 'dashboard';
+    if (tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
   // Tab-specific data
   const [logs, setLogs] = useState([]);
   const [events, setEvents] = useState([]);
@@ -244,32 +252,34 @@ const IotDeviceView = () => {
         </div>
         <div className="iot-device-info-section">
           <div className="iot-device-info-main">
-            <h2>{device.name}</h2>
-            <div className="iot-device-serial">
-              <code>{device.serial_number}</code>
+            <div className="iot-device-title-row">
+              <h2>{device.name}</h2>
+              <code className="iot-device-id">{device.serial_number}</code>
             </div>
           </div>
           <div className="iot-device-live-section">
-            <div className="live-indicator">
-              <span className={`live-indicator__dot ${!deviceOnlineStatus.isOnline ? 'live-indicator__dot--offline' : ''}`}></span>
-              <span className="live-indicator__text">{deviceOnlineStatus.isOnline ? 'Live' : 'Offline'}</span>
-              {lastUpdate && (
-                <span className="live-indicator__time">
-                  Last updated: {deviceOnlineStatus.minutesAgo === 0
-                    ? 'just now'
-                    : deviceOnlineStatus.minutesAgo < 60
-                      ? `${deviceOnlineStatus.minutesAgo} min ago`
-                      : `${Math.floor(deviceOnlineStatus.minutesAgo / 60)}h ${deviceOnlineStatus.minutesAgo % 60}m ago`
-                  }
-                </span>
-              )}
+            <div className="iot-device-live-row">
+              <RefreshTimer
+                interval={10}
+                onRefresh={refreshData}
+                isLoading={isRefreshing}
+                size="md"
+              />
+              <div className="live-indicator">
+                <span className={`live-indicator__dot ${!deviceOnlineStatus.isOnline ? 'live-indicator__dot--offline' : ''}`}></span>
+                <span className="live-indicator__text">{deviceOnlineStatus.isOnline ? 'Live' : 'Offline'}</span>
+              </div>
             </div>
-            <RefreshTimer
-              interval={10}
-              onRefresh={refreshData}
-              isLoading={isRefreshing}
-              size="md"
-            />
+            {lastUpdate && (
+              <span className="live-indicator__time">
+                Last updated: {deviceOnlineStatus.minutesAgo === 0
+                  ? 'just now'
+                  : deviceOnlineStatus.minutesAgo < 60
+                    ? `${deviceOnlineStatus.minutesAgo} min ago`
+                    : `${Math.floor(deviceOnlineStatus.minutesAgo / 60)}h ${deviceOnlineStatus.minutesAgo % 60}m ago`
+                }
+              </span>
+            )}
           </div>
         </div>
       </div>
