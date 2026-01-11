@@ -59,7 +59,7 @@ const IotDevices = () => {
           {devices.map(device => (
             <div key={device.id} className="iot-device-card large">
               <div className="iot-device-icon">
-                <i className="bi bi-hdd"></i>
+                <i className="bi bi-router"></i>
               </div>
               <div className="iot-device-header">
                 <h4>{device.name}</h4>

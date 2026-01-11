@@ -169,14 +169,41 @@ const UPlotChart = ({
         stroke: '#6b7280',
         grid: { stroke: '#e5e7eb', width: 1 },
         ticks: { stroke: '#e5e7eb', width: 1 },
-        values: (u, vals) => vals.map(v => {
-          const date = new Date(v * 1000);
-          // Show date if range > 1 day
-          if (u.scales.x.max - u.scales.x.min > 86400) {
-            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-          }
-          return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }),
+        values: (u, vals) => {
+          const scaleMin = u.scales.x.min;
+          const scaleMax = u.scales.x.max;
+          const ONE_DAY_SECS = 60 * 60 * 24;
+          const rangeInDays = (scaleMax - scaleMin) / ONE_DAY_SECS;
+          const isMultiDay = rangeInDays > 1;
+
+          // Track which days we've seen to show date only at first tick of each day
+          const seenDays = new Set();
+
+          return vals.map(v => {
+            const date = new Date(v * 1000);
+            const dayKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+            const isFirstTickOfDay = !seenDays.has(dayKey);
+
+            if (isFirstTickOfDay) {
+              seenDays.add(dayKey);
+              // Show date at the first tick of each day
+              return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            }
+
+            // For subsequent ticks of the same day, show time only
+            if (isMultiDay) {
+              // In multi-day view, show time for non-first ticks
+              const hours = date.getHours();
+              if (hours === 12) {
+                return '12PM';
+              }
+              return ''; // Hide other ticks in multi-day view to avoid clutter
+            }
+
+            // Single day view - show time
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          });
+        },
         font: '11px system-ui',
         size: 40,
       },
@@ -198,6 +225,7 @@ const UPlotChart = ({
         show: true,
         x: true,
         y: false, // No horizontal cursor line
+        stroke: '#f97316', // Orange cursor line
         points: {
           show: true,
           size: 8,

@@ -228,6 +228,9 @@ const IotDeviceView = () => {
     );
   }
 
+  // Calculate actual online status based on last update time
+  const deviceOnlineStatus = checkDeviceOnline(lastUpdate || device.last_seen_at);
+
   return (
     <IotLayout>
       <div className="iot-breadcrumb">
@@ -240,22 +243,49 @@ const IotDeviceView = () => {
 
       {/* Device Header */}
       <div className="iot-device-header-large">
-        <div className="iot-device-icon large">
-          <i className="bi bi-hdd"></i>
+        <div className={`iot-device-icon-section ${!deviceOnlineStatus.isOnline ? 'offline' : ''}`}>
+          <div className="iot-device-icon large">
+            <i className="bi bi-router"></i>
+          </div>
         </div>
-        <div className="iot-device-info-large">
-          <h2>{device.name}</h2>
-          <p><code>{device.serial_number}</code></p>
-          <div className="iot-device-meta-row">
-            <span className={`iot-badge ${device.is_online ? 'online' : 'offline'}`}>
-              {device.is_online ? 'Online' : 'Offline'}
-            </span>
-            {device.device_type && <span className="iot-device-type">{device.device_type}</span>}
-            <span className="iot-device-meta">
-              <i className="bi bi-clock"></i> Last seen: {device.last_seen_at
-                ? new Date(device.last_seen_at).toLocaleString()
-                : 'Never'}
-            </span>
+        <div className="iot-device-info-section">
+          <div className="iot-device-info-main">
+            <h2>{device.name}</h2>
+            <div className="iot-device-serial">
+              <code>{device.serial_number}</code>
+            </div>
+            <div className="iot-device-meta-row">
+              <span className={`iot-badge ${deviceOnlineStatus.isOnline ? 'online' : 'offline'}`}>
+                {deviceOnlineStatus.isOnline ? 'Online' : 'Offline'}
+              </span>
+              <span className="iot-device-meta">
+                <i className="bi bi-clock"></i> Last seen: {device.last_seen_at
+                  ? new Date(device.last_seen_at).toLocaleString()
+                  : 'Never'}
+              </span>
+            </div>
+          </div>
+          <div className="iot-device-live-section">
+            <div className="live-indicator">
+              <span className={`live-indicator__dot ${!deviceOnlineStatus.isOnline ? 'live-indicator__dot--offline' : ''}`}></span>
+              <span className="live-indicator__text">{deviceOnlineStatus.isOnline ? 'Live' : 'Offline'}</span>
+              {lastUpdate && (
+                <span className="live-indicator__time">
+                  Last updated: {deviceOnlineStatus.minutesAgo === 0
+                    ? 'just now'
+                    : deviceOnlineStatus.minutesAgo < 60
+                      ? `${deviceOnlineStatus.minutesAgo} min ago`
+                      : `${Math.floor(deviceOnlineStatus.minutesAgo / 60)}h ${deviceOnlineStatus.minutesAgo % 60}m ago`
+                  }
+                </span>
+              )}
+            </div>
+            <RefreshTimer
+              interval={10}
+              onRefresh={refreshData}
+              isLoading={isRefreshing}
+              size="md"
+            />
           </div>
         </div>
       </div>
@@ -307,8 +337,6 @@ const IotDeviceView = () => {
                     device={device}
                     logs={logs}
                     sensorConfigs={sensorConfigs}
-                    onRefresh={refreshData}
-                    isRefreshing={isRefreshing}
                     lastUpdate={lastUpdate}
                   />
                 )}
@@ -453,19 +481,34 @@ const OFFLINE_THRESHOLD_MINUTES = 60;
 const checkDeviceOnline = (lastUpdate) => {
   if (!lastUpdate) return { isOnline: false, minutesAgo: null };
 
-  const lastUpdateTime = new Date(lastUpdate).getTime();
+  // Parse the timestamp - handle both ISO strings and timestamps without timezone
+  let lastUpdateTime;
+  const dateStr = String(lastUpdate);
+
+  // If the timestamp doesn't have timezone info, treat it as local time
+  if (dateStr.includes('T') && !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
+    // ISO format without timezone - append 'Z' to treat as UTC, or parse as local
+    // Since backend usually stores in UTC, we append Z
+    lastUpdateTime = new Date(dateStr + 'Z').getTime();
+  } else {
+    lastUpdateTime = new Date(lastUpdate).getTime();
+  }
+
   const now = Date.now();
   const diffMs = now - lastUpdateTime;
   const diffMinutes = Math.floor(diffMs / 60000);
 
+  // Ensure we don't show negative values (future timestamps)
+  const absoluteMinutes = Math.max(0, diffMinutes);
+
   return {
-    isOnline: diffMinutes < OFFLINE_THRESHOLD_MINUTES,
-    minutesAgo: diffMinutes
+    isOnline: absoluteMinutes < OFFLINE_THRESHOLD_MINUTES,
+    minutesAgo: absoluteMinutes
   };
 };
 
 // Dashboard Tab
-const DashboardTab = ({ device, logs, sensorConfigs, onRefresh, isRefreshing, lastUpdate }) => {
+const DashboardTab = ({ device, logs, sensorConfigs, lastUpdate }) => {
   const sensorReadings = processSensorReadings(logs, sensorConfigs);
 
   // Count alarms
@@ -476,30 +519,6 @@ const DashboardTab = ({ device, logs, sensorConfigs, onRefresh, isRefreshing, la
 
   return (
     <div className="iot-dashboard-tab">
-      {/* Live Data Header */}
-      <div className="data-refresh-header">
-        <div className="live-indicator">
-          <span className={`live-indicator__dot ${!onlineStatus.isOnline ? 'live-indicator__dot--offline' : ''}`}></span>
-          <span className="live-indicator__text">{onlineStatus.isOnline ? 'Live' : 'Offline'}</span>
-          {lastUpdate && (
-            <span className="live-indicator__time">
-              Last updated: {onlineStatus.minutesAgo === 0
-                ? 'just now'
-                : onlineStatus.minutesAgo < 60
-                  ? `${onlineStatus.minutesAgo} min ago`
-                  : `${Math.floor(onlineStatus.minutesAgo / 60)}h ${onlineStatus.minutesAgo % 60}m ago`
-              }
-            </span>
-          )}
-        </div>
-        <RefreshTimer
-          interval={10}
-          onRefresh={onRefresh}
-          isLoading={isRefreshing}
-          size="md"
-        />
-      </div>
-
       {/* Quick Stats */}
       <div className="iot-stats-grid">
         <div className={`iot-stat-card ${!onlineStatus.isOnline ? 'iot-stat-card--offline' : ''}`}>
