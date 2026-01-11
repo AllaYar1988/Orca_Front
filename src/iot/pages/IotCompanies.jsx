@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useIotAuth } from '../context/IotAuthContext';
-import { getUserCompanies, getCompanyDevices } from '../api/devices';
+import { getUserCompanies, getCompanyDevices, getDevicesStatus } from '../api/devices';
 import IotLayout from '../components/IotLayout';
 import CompanyDataCard from '../components/CompanyDataCard';
 import '../styles/sensor-components.css';
@@ -21,9 +21,32 @@ const IotCompanies = () => {
             response.companies.map(async (company) => {
               try {
                 const devicesRes = await getCompanyDevices(company.id);
+                const devices = devicesRes.success ? devicesRes.devices || [] : [];
+
+                // Fetch real-time status for devices
+                if (devices.length > 0) {
+                  try {
+                    const statusRes = await getDevicesStatus({ company_id: company.id });
+                    if (statusRes.success) {
+                      // Update device is_online from status API
+                      const statusMap = {};
+                      statusRes.devices.forEach(d => {
+                        statusMap[d.id] = d.is_online;
+                      });
+                      devices.forEach(device => {
+                        if (statusMap[device.id] !== undefined) {
+                          device.is_online = statusMap[device.id];
+                        }
+                      });
+                    }
+                  } catch {
+                    // Status fetch failed, keep original values
+                  }
+                }
+
                 return {
                   ...company,
-                  devices: devicesRes.success ? devicesRes.devices || [] : []
+                  devices
                 };
               } catch {
                 return { ...company, devices: [] };

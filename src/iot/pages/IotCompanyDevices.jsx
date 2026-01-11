@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useIotAuth } from '../context/IotAuthContext';
-import { getCompanyDevices, getDeviceLogs } from '../api/devices';
+import { getCompanyDevices, getDeviceLogs, getDevicesStatus } from '../api/devices';
 import IotLayout from '../components/IotLayout';
 import DeviceDataCard from '../components/DeviceDataCard';
 import { SENSOR_TYPES } from '../config/sensorTypes';
@@ -60,8 +60,30 @@ const IotCompanyDevices = () => {
         if (response.success) {
           setCompany(response.company);
 
+          const rawDevices = response.devices || [];
+
+          // Fetch real-time status for all devices
+          let statusMap = {};
+          if (rawDevices.length > 0) {
+            try {
+              const statusRes = await getDevicesStatus({ company_id: companyId });
+              if (statusRes.success) {
+                statusRes.devices.forEach(d => {
+                  statusMap[d.id] = d.is_online;
+                });
+              }
+            } catch {
+              // Status fetch failed, keep original values
+            }
+          }
+
           const devicesWithParams = [];
-          for (const device of response.devices || []) {
+          for (const device of rawDevices) {
+            // Update is_online from status API if available
+            if (statusMap[device.id] !== undefined) {
+              device.is_online = statusMap[device.id];
+            }
+
             try {
               const logsRes = await getDeviceLogs(device.id, { limit: 20 });
               const logs = logsRes.success ? logsRes.logs || [] : [];

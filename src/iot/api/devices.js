@@ -109,12 +109,28 @@ export const getDeviceLatestReadings = async (deviceId) => {
  * Get the last update timestamp for a device
  * Use this for smart polling - only fetch data if last_update changed
  * @param {number} deviceId - Device ID
- * @returns {Promise} - { success, last_update, has_data }
+ * @returns {Promise} - { success, last_update, last_seen_at, is_online, has_data }
  */
 export const getDeviceLastUpdate = async (deviceId) => {
   const response = await api.get('/device_last_update.php', {
     params: { device_id: deviceId }
   });
+  return response.data;
+};
+
+/**
+ * Get online/offline status for multiple devices
+ * @param {object} params - Either { device_ids: [1,2,3] } or { company_id: 1 }
+ * @returns {Promise} - { success, devices: [{ id, is_online, last_seen_at }] }
+ */
+export const getDevicesStatus = async (params) => {
+  const queryParams = {};
+  if (params.device_ids) {
+    queryParams.device_ids = params.device_ids.join(',');
+  } else if (params.company_id) {
+    queryParams.company_id = params.company_id;
+  }
+  const response = await api.get('/devices_status.php', { params: queryParams });
   return response.data;
 };
 
