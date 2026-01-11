@@ -67,6 +67,7 @@ const IotDeviceView = () => {
   // Live data refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [secondsAgo, setSecondsAgo] = useState(null); // Time since last update from backend
   const lastFetchTime = useRef(null);
   const lastKnownUpdate = useRef(null); // Track backend's last_update timestamp
 
@@ -86,6 +87,7 @@ const IotDeviceView = () => {
           const deviceData = deviceRes.device;
           if (statusRes.success) {
             deviceData.is_online = statusRes.is_online;
+            setSecondsAgo(statusRes.seconds_ago);
           }
           setDevice(deviceData);
         } else {
@@ -145,6 +147,9 @@ const IotDeviceView = () => {
         setDevice(deviceData);
       }
 
+      // Update seconds_ago from backend
+      setSecondsAgo(updateCheck.seconds_ago);
+
       if (logsRes.success && logsRes.logs && logsRes.logs.length > 0) {
         // Append new logs to existing logs
         setLogs(prevLogs => {
@@ -187,6 +192,7 @@ const IotDeviceView = () => {
         if (updateRes.success) {
           lastKnownUpdate.current = updateRes.last_update;
           setLastUpdate(updateRes.last_update); // Use backend's timestamp
+          setSecondsAgo(updateRes.seconds_ago); // Update time since last update
         }
       } catch (err) {
         console.error(err);
@@ -294,9 +300,9 @@ const IotDeviceView = () => {
                 <span className="live-indicator__text">{deviceOnlineStatus.isOnline ? 'Live' : 'Offline'}</span>
               </div>
             </div>
-            {(lastUpdate || device.last_seen_at) && (
+            {secondsAgo !== null && (
               <span className="live-indicator__time">
-                Last updated: {formatLastUpdate(lastUpdate || device.last_seen_at)}
+                Last updated: {formatSecondsAgo(secondsAgo)}
               </span>
             )}
           </div>
@@ -487,51 +493,44 @@ const checkReadingAlarm = (reading) => {
 };
 
 /**
- * Format last update time for display
- * Shows relative time like "just now", "5 min ago", "2h 30m ago", or date if older
+ * Format seconds ago for display
+ * Uses seconds_ago from backend to avoid timezone issues
  */
-const formatLastUpdate = (timestamp) => {
-  if (!timestamp) return 'Unknown';
+const formatSecondsAgo = (secondsAgo) => {
+  if (secondsAgo === null || secondsAgo === undefined) return 'Unknown';
 
-  // Parse timestamp
-  let updateTime;
-  const dateStr = String(timestamp);
+  // Handle negative values (shouldn't happen, but just in case)
+  if (secondsAgo < 0) return 'just now';
 
-  // Handle different timestamp formats
-  if (dateStr.includes('T') && !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.match(/-\d{2}:\d{2}$/)) {
-    updateTime = new Date(dateStr + 'Z').getTime();
-  } else {
-    updateTime = new Date(timestamp).getTime();
-  }
-
-  const now = Date.now();
-  const diffMs = now - updateTime;
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  // Handle future timestamps (clock sync issues)
-  if (diffMs < 0) {
+  if (secondsAgo < 60) {
     return 'just now';
   }
 
-  if (diffSeconds < 60) {
-    return 'just now';
-  }
-  if (diffMinutes < 60) {
-    return `${diffMinutes} min ago`;
-  }
-  if (diffHours < 24) {
-    const mins = diffMinutes % 60;
-    return mins > 0 ? `${diffHours}h ${mins}m ago` : `${diffHours}h ago`;
-  }
-  if (diffDays < 7) {
-    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  const minutes = Math.floor(secondsAgo / 60);
+  if (minutes < 60) {
+    return `${minutes} min ago`;
   }
 
-  // More than a week - show date
-  return new Date(updateTime).toLocaleDateString();
+  const hours = Math.floor(minutes / 60);
+  const remainingMins = minutes % 60;
+  if (hours < 24) {
+    return remainingMins > 0 ? `${hours}h ${remainingMins}m ago` : `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  }
+
+  // More than a week - show "X weeks ago" or date
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) {
+    return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+  }
+
+  // More than a month - show approximate time
+  const months = Math.floor(days / 30);
+  return `${months} month${months > 1 ? 's' : ''} ago`;
 };
 
 /**
