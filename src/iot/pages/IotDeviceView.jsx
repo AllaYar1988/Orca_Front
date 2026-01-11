@@ -8,6 +8,7 @@ import SensorReadingCard from '../components/SensorReadingCard';
 import RefreshTimer from '../components/RefreshTimer';
 import ChartsTab from '../components/ChartsTab';
 import { SENSOR_TYPES } from '../config/sensorTypes';
+import { formatSecondsAgo } from '../utils/timeUtils';
 import '../styles/sensor-components.css';
 import '../styles/charts.css';
 
@@ -490,47 +491,6 @@ const checkReadingAlarm = (reading) => {
     return true;
   }
   return false;
-};
-
-/**
- * Format seconds ago for display
- * Uses seconds_ago from backend to avoid timezone issues
- */
-const formatSecondsAgo = (secondsAgo) => {
-  if (secondsAgo === null || secondsAgo === undefined) return 'Unknown';
-
-  // Handle negative values (shouldn't happen, but just in case)
-  if (secondsAgo < 0) return 'just now';
-
-  if (secondsAgo < 60) {
-    return 'just now';
-  }
-
-  const minutes = Math.floor(secondsAgo / 60);
-  if (minutes < 60) {
-    return `${minutes} min ago`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMins = minutes % 60;
-  if (hours < 24) {
-    return remainingMins > 0 ? `${hours}h ${remainingMins}m ago` : `${hours}h ago`;
-  }
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) {
-    return `${days} day${days > 1 ? 's' : ''} ago`;
-  }
-
-  // More than a week - show "X weeks ago" or date
-  const weeks = Math.floor(days / 7);
-  if (weeks < 4) {
-    return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
-  }
-
-  // More than a month - show approximate time
-  const months = Math.floor(days / 30);
-  return `${months} month${months > 1 ? 's' : ''} ago`;
 };
 
 /**

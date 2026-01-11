@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DeviceParameterCard from "./DeviceParameterCard";
+import { formatSecondsAgo } from "../utils/timeUtils";
 
 /**
  * DeviceDataCard Component
@@ -8,30 +9,12 @@ import DeviceParameterCard from "./DeviceParameterCard";
  * Follows the design: Device name, location, status, and parameter readings.
  *
  * @param {object} device - Device object
- *   { id, name, location, status, battery, lastSeen, parameters }
+ *   { id, name, location, status, battery, lastSeen, seconds_ago, parameters }
  * @param {function} onClick - Click handler for card
  * @param {boolean} expanded - Whether card is expanded (default: false)
  */
 const DeviceDataCard = ({ device, onClick, expanded = false }) => {
   const [isExpanded, setIsExpanded] = useState(expanded);
-
-  // Format last seen time
-  const formatLastSeen = (timestamp) => {
-    if (!timestamp) return "Unknown";
-
-    const now = new Date();
-    const lastSeen = new Date(timestamp);
-    const diffMs = now - lastSeen;
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffSecs < 60) return `${diffSecs}s ago`;
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
 
   // Get status class
   const getStatusClass = (status) => {
@@ -113,10 +96,10 @@ const DeviceDataCard = ({ device, onClick, expanded = false }) => {
             {device.battery}%
           </span>
         )}
-        {device.lastSeen && (
+        {(device.seconds_ago !== null && device.seconds_ago !== undefined) && (
           <span className="device-meta-item">
             <i className="bi bi-clock"></i>
-            {formatLastSeen(device.lastSeen)}
+            {formatSecondsAgo(device.seconds_ago)}
           </span>
         )}
         {device.parameters?.length > 0 && (

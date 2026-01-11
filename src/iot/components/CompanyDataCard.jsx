@@ -1,29 +1,7 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CompanyIcon from './CompanyIcon';
 import { getCompanyConfig } from '../config/companyTypes';
-
-/**
- * Format relative time (e.g., "2 min ago", "1 hour ago")
- */
-const formatRelativeTime = (dateString) => {
-  if (!dateString) return 'Never';
-
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffSec < 60) return 'Just now';
-  if (diffMin < 60) return `${diffMin} min ago`;
-  if (diffHour < 24) return `${diffHour} hour${diffHour > 1 ? 's' : ''} ago`;
-  if (diffDay < 7) return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`;
-
-  return date.toLocaleDateString();
-};
+import { formatSecondsAgo } from '../utils/timeUtils';
 
 /**
  * CompanyDataCard Component
@@ -105,7 +83,7 @@ const CompanyDataCard = ({ company, onClick }) => {
                 </span>
                 <span className="company-data-card__device-name">{device.name}</span>
                 <span className="company-data-card__device-time">
-                  {formatRelativeTime(device.last_seen_at || device.updated_at)}
+                  {formatSecondsAgo(device.seconds_ago)}
                 </span>
               </li>
             ))}
