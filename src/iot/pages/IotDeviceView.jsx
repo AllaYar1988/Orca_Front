@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useIotAuth } from '../context/IotAuthContext';
 import { usePermissions } from '../hooks/usePermissions';
@@ -502,15 +502,22 @@ const checkDeviceOnline = (lastUpdate) => {
   };
 };
 
-// Dashboard Tab
-const DashboardTab = ({ device, logs, sensorConfigs, lastUpdate }) => {
-  const sensorReadings = processSensorReadings(logs, sensorConfigs);
+// Dashboard Tab - Memoized for performance
+const DashboardTab = memo(({ device, logs, sensorConfigs, lastUpdate }) => {
+  // Memoize sensor readings to avoid recalculating on every render
+  const sensorReadings = useMemo(() => {
+    return processSensorReadings(logs, sensorConfigs);
+  }, [logs, sensorConfigs]);
 
-  // Count alarms
-  const alarmCount = sensorReadings.filter(checkReadingAlarm).length;
+  // Memoize alarm count
+  const alarmCount = useMemo(() => {
+    return sensorReadings.filter(checkReadingAlarm).length;
+  }, [sensorReadings]);
 
   // Check device online status based on last update time
-  const onlineStatus = checkDeviceOnline(lastUpdate);
+  const onlineStatus = useMemo(() => {
+    return checkDeviceOnline(lastUpdate);
+  }, [lastUpdate]);
 
   return (
     <div className="iot-dashboard-tab">
@@ -540,7 +547,6 @@ const DashboardTab = ({ device, logs, sensorConfigs, lastUpdate }) => {
       <div className="iot-card" style={{ marginTop: '1.5rem' }}>
         <div className="iot-card-header">
           <span><i className="bi bi-thermometer-half"></i> Sensor Readings</span>
-          <span className="iot-badge info">{sensorReadings.length} parameters</span>
         </div>
         <div className="iot-card-body">
           {sensorReadings.length === 0 ? (
@@ -551,7 +557,7 @@ const DashboardTab = ({ device, logs, sensorConfigs, lastUpdate }) => {
           ) : (
             <div className="sensor-reading-grid">
               {sensorReadings.map(reading => (
-                <SensorReadingCard
+                <MemoizedSensorReadingCard
                   key={reading.key}
                   type={reading.type}
                   name={reading.name}
@@ -574,7 +580,10 @@ const DashboardTab = ({ device, logs, sensorConfigs, lastUpdate }) => {
       )}
     </div>
   );
-};
+});
+
+// Memoized SensorReadingCard wrapper to prevent unnecessary re-renders
+const MemoizedSensorReadingCard = memo(SensorReadingCard);
 
 // Charts Tab is now imported from components/ChartsTab.jsx
 
