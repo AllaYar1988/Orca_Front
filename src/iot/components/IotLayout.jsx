@@ -14,9 +14,14 @@ const IotLayout = ({ children }) => {
   const [companies, setCompanies] = useState([]);
   const [expandedCompanies, setExpandedCompanies] = useState({});
   const [companyDevices, setCompanyDevices] = useState({});
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   // Fetch user's companies on mount
   useEffect(() => {
@@ -81,11 +86,13 @@ const IotLayout = ({ children }) => {
       <nav className="iot-navbar">
         <div className="iot-navbar-container">
           <div className="iot-navbar-left">
+            {/* Mobile hamburger menu - only visible on mobile */}
             <button
-              className="iot-sidebar-toggle"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="iot-mobile-menu-toggle"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
             >
-              <i className={`bi bi-${sidebarOpen ? 'x-lg' : 'list'}`}></i>
+              <i className={`bi bi-${mobileMenuOpen ? 'x-lg' : 'list'}`}></i>
             </button>
           </div>
 
@@ -105,9 +112,17 @@ const IotLayout = ({ children }) => {
         </div>
       </nav>
 
+      {/* Mobile overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="iot-mobile-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       <div className="iot-main-wrapper">
-        {/* Sidebar */}
-        <aside className={`iot-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
+        {/* Sidebar - always visible on desktop, slide-in on mobile */}
+        <aside className={`iot-sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
           <div className="iot-sidebar-brand">
             <img src={orcaLogo} alt="Orca" className="iot-sidebar-logo" />
           </div>
@@ -194,7 +209,7 @@ const IotLayout = ({ children }) => {
         </aside>
 
         {/* Main Content */}
-        <div className={`iot-content ${sidebarOpen ? 'with-sidebar' : 'full-width'}`}>
+        <div className="iot-content with-sidebar">
           {children}
         </div>
       </div>

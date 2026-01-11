@@ -233,16 +233,10 @@ const IotDeviceView = () => {
 
   return (
     <IotLayout>
-      <div className="iot-breadcrumb">
-        <Link to="/iot"><i className="bi bi-building"></i> Companies</Link>
-        <i className="bi bi-chevron-right"></i>
-        <Link to={`/iot/company/${device.company_id}/devices`}>{device.company_name}</Link>
-        <i className="bi bi-chevron-right"></i>
-        <span>{device.name}</span>
-      </div>
-
-      {/* Device Header */}
-      <div className="iot-device-header-large">
+      {/* Sticky Device Header & Tabs */}
+      <div className="iot-device-sticky-header">
+        {/* Device Header */}
+        <div className="iot-device-header-large">
         <div className={`iot-device-icon-section ${!deviceOnlineStatus.isOnline ? 'offline' : ''}`}>
           <div className="iot-device-icon large">
             <i className="bi bi-router"></i>
@@ -253,16 +247,6 @@ const IotDeviceView = () => {
             <h2>{device.name}</h2>
             <div className="iot-device-serial">
               <code>{device.serial_number}</code>
-            </div>
-            <div className="iot-device-meta-row">
-              <span className={`iot-badge ${deviceOnlineStatus.isOnline ? 'online' : 'offline'}`}>
-                {deviceOnlineStatus.isOnline ? 'Online' : 'Offline'}
-              </span>
-              <span className="iot-device-meta">
-                <i className="bi bi-clock"></i> Last seen: {device.last_seen_at
-                  ? new Date(device.last_seen_at).toLocaleString()
-                  : 'Never'}
-              </span>
             </div>
           </div>
           <div className="iot-device-live-section">
@@ -322,6 +306,7 @@ const IotDeviceView = () => {
         >
           <i className="bi bi-gear"></i> Config
         </button>
+      </div>
       </div>
 
       {/* Tab Content */}
@@ -521,15 +506,6 @@ const DashboardTab = ({ device, logs, sensorConfigs, lastUpdate }) => {
     <div className="iot-dashboard-tab">
       {/* Quick Stats */}
       <div className="iot-stats-grid">
-        <div className={`iot-stat-card ${!onlineStatus.isOnline ? 'iot-stat-card--offline' : ''}`}>
-          <div className={`iot-stat-icon ${onlineStatus.isOnline ? 'green' : 'gray'}`}>
-            <i className={`bi ${onlineStatus.isOnline ? 'bi-wifi' : 'bi-wifi-off'}`}></i>
-          </div>
-          <div className="iot-stat-info">
-            <div className="iot-stat-value">{onlineStatus.isOnline ? 'Online' : 'Offline'}</div>
-            <div className="iot-stat-label">Status</div>
-          </div>
-        </div>
         <div className={`iot-stat-card ${alarmCount > 0 ? 'iot-stat-card--alarm' : ''}`}>
           <div className={`iot-stat-icon ${alarmCount > 0 ? 'red' : 'green'}`}>
             <i className={`bi ${alarmCount > 0 ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}`}></i>
