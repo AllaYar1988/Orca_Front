@@ -201,7 +201,7 @@ const IotDeviceView = () => {
     };
 
     fetchTodayLogs();
-  }, [device, deviceId]);
+  }, [deviceId]);
 
   // Fetch tab-specific data
   useEffect(() => {
@@ -236,7 +236,7 @@ const IotDeviceView = () => {
     };
 
     fetchTabData();
-  }, [activeTab, device, deviceId]);
+  }, [activeTab, deviceId]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
