@@ -682,6 +682,31 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
     return '';
   };
 
+  // Check if log value is in alarm state
+  const checkLogAlarm = (logKey, logValue) => {
+    const config = configMap[logKey];
+    if (!config || !config.alarm_enabled) {
+      return { isAlarm: false, type: null };
+    }
+
+    const value = parseFloat(logValue);
+    if (isNaN(value)) {
+      return { isAlarm: false, type: null };
+    }
+
+    const minAlarm = config.min_alarm;
+    const maxAlarm = config.max_alarm;
+
+    if (minAlarm !== null && minAlarm !== undefined && value < parseFloat(minAlarm)) {
+      return { isAlarm: true, type: 'low' };
+    }
+    if (maxAlarm !== null && maxAlarm !== undefined && value > parseFloat(maxAlarm)) {
+      return { isAlarm: true, type: 'high' };
+    }
+
+    return { isAlarm: false, type: null };
+  };
+
   const totalPages = Math.ceil(totalCount / limit);
 
   // Generate page numbers to show
@@ -777,9 +802,10 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
                       const displayName = getDisplayName(log.log_key);
                       const unit = getUnit(log.log_key);
                       const hasLabel = displayName !== log.log_key;
+                      const alarmStatus = checkLogAlarm(log.log_key, log.log_value);
 
                       return (
-                        <tr key={log.id}>
+                        <tr key={log.id} className={alarmStatus.isAlarm ? 'log-row--alarm' : ''}>
                           <td className="iot-nowrap">{new Date(log.logged_at).toLocaleString()}</td>
                           <td>
                             {hasLabel ? (
@@ -792,8 +818,16 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
                             )}
                           </td>
                           <td className="iot-truncate">
-                            {log.log_value || '-'}
-                            {unit && <span className="log-unit"> {unit}</span>}
+                            <span className={alarmStatus.isAlarm ? 'log-value--alarm' : ''}>
+                              {log.log_value || '-'}
+                              {unit && <span className="log-unit"> {unit}</span>}
+                            </span>
+                            {alarmStatus.isAlarm && (
+                              <span className={`log-alarm-badge log-alarm-badge--${alarmStatus.type}`}>
+                                <i className="bi bi-exclamation-triangle-fill"></i>
+                                {alarmStatus.type === 'low' ? 'LOW' : 'HIGH'}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );

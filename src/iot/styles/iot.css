@@ -541,6 +541,46 @@
   white-space: nowrap;
 }
 
+/* Log alarm highlighting */
+.log-row--alarm {
+  background-color: rgba(239, 68, 68, 0.08) !important;
+}
+
+.log-row--alarm:hover {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+.log-value--alarm {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.log-alarm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.log-alarm-badge--high {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.log-alarm-badge--low {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+}
+
+.log-alarm-badge i {
+  font-size: 0.6rem;
+}
+
 .iot-nowrap {
   white-space: nowrap;
 }
