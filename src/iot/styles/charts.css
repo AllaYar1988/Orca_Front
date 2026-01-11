@@ -873,7 +873,7 @@
   color: #1f2937;
 }
 
-/* Cursor crosshair style */
+/* Cursor crosshair style - subtle gray like Hawk */
 .uplot-chart-wrapper .u-cursor-x,
 .uplot-chart-wrapper .u-cursor-y {
   border-color: rgba(0, 0, 0, 0.2) !important;
@@ -881,8 +881,8 @@
 
 /* Selection box style */
 .uplot-chart-wrapper .u-select {
-  background: rgba(13, 110, 253, 0.15) !important;
-  border: 1px solid rgba(13, 110, 253, 0.5) !important;
+  background: rgba(59, 130, 246, 0.15) !important;
+  border: 1px solid rgba(59, 130, 246, 0.5) !important;
 }
 
 /* ========================================

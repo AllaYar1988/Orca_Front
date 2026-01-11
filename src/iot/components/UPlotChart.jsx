@@ -130,7 +130,7 @@ const UPlotChart = ({
       ...variables.map((v, idx) => ({
         label: v.label || v.key,
         stroke: v.color || CHART_COLORS[idx % CHART_COLORS.length],
-        width: 2,
+        width: 1.5, // Narrow line like Hawk advance page
         points: { show: false },
         spanGaps: true,
       }))
@@ -163,12 +163,14 @@ const UPlotChart = ({
       }
     };
 
-    // Configure axes
+    // Configure axes - Hawk-style with border and dashed grid
     const axes = [
       {
-        stroke: '#6b7280',
-        grid: { stroke: '#e5e7eb', width: 1 },
-        ticks: { stroke: '#e5e7eb', width: 1 },
+        // X-axis (time)
+        stroke: '#666',
+        border: { show: true, stroke: '#e0e0e0', width: 1 },
+        grid: { show: true, stroke: '#e0e0e0', width: 1, dash: [3, 3] },
+        ticks: { show: true, stroke: '#e0e0e0', width: 1, size: 5 },
         values: (u, vals) => {
           const scaleMin = u.scales.x.min;
           const scaleMax = u.scales.x.max;
@@ -208,12 +210,14 @@ const UPlotChart = ({
         size: 40,
       },
       {
-        stroke: '#6b7280',
-        grid: { stroke: '#e5e7eb', width: 1 },
-        ticks: { stroke: '#e5e7eb', width: 1 },
+        // Y-axis
+        stroke: '#666',
+        border: { show: true, stroke: '#e0e0e0', width: 1 },
+        grid: { show: true, stroke: '#e0e0e0', width: 1, dash: [3, 3] },
+        ticks: { show: true, stroke: '#e0e0e0', width: 1, size: 5 },
         values: (u, vals) => vals.map(v => v.toFixed(1)),
         font: '11px system-ui',
-        size: 60,
+        size: 50,
       }
     ];
 
@@ -225,13 +229,12 @@ const UPlotChart = ({
         show: true,
         x: true,
         y: false, // No horizontal cursor line
-        stroke: '#f97316', // Orange cursor line
         points: {
           show: true,
-          size: 8,
+          size: 6,
           fill: (u, seriesIdx) => series[seriesIdx]?.stroke || '#0d6efd',
           stroke: '#fff',
-          width: 2
+          width: 1.5
         },
         drag: {
           x: true,
@@ -254,10 +257,29 @@ const UPlotChart = ({
       hooks: {
         draw: [
           (u) => {
-            // Draw filled alarm zones and threshold lines
             const ctx = u.ctx;
             const { left, top, width, height } = u.bbox;
 
+            // Draw top and right border lines to complete the chart frame (Hawk-style)
+            ctx.save();
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+
+            // Top border line
+            ctx.beginPath();
+            ctx.moveTo(left, top);
+            ctx.lineTo(left + width, top);
+            ctx.stroke();
+
+            // Right border line
+            ctx.beginPath();
+            ctx.moveTo(left + width, top);
+            ctx.lineTo(left + width, top + height);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Draw filled alarm zones and threshold lines
             variables.forEach((v, idx) => {
               if (!v.alarmEnabled) return;
 
@@ -501,9 +523,23 @@ const UPlotChart = ({
   // Store cleanup functions separately so they survive chartRef.current changes
   const cleanupRef = useRef({ touch: null });
 
-  // Initialize/update chart
+  // Track variables keys to detect when chart structure changes (need rebuild)
+  const variablesKeyRef = useRef(null);
+
+  // Initialize chart (only when structure changes, not data)
   useEffect(() => {
-    if (!containerRef.current || !uplotData || chartWidth === 0) return;
+    if (!containerRef.current || chartWidth === 0) return;
+
+    // Check if variables structure changed (keys or count)
+    const currentVariablesKey = variables.map(v => v.key).join(',');
+    const structureChanged = variablesKeyRef.current !== currentVariablesKey;
+
+    // Only rebuild if no chart exists or structure changed
+    if (chartRef.current && !structureChanged) {
+      return; // Chart exists and structure same, skip rebuild
+    }
+
+    variablesKeyRef.current = currentVariablesKey;
 
     // Clean up existing chart and touch listeners
     if (cleanupRef.current.touch) {
@@ -514,6 +550,9 @@ const UPlotChart = ({
       chartRef.current.destroy();
       chartRef.current = null;
     }
+
+    // Need initial data to create chart
+    if (!uplotData) return;
 
     const opts = buildOptions();
     chartRef.current = new uPlot(opts, uplotData, containerRef.current);
@@ -638,9 +677,22 @@ const UPlotChart = ({
         chartRef.current = null;
       }
     };
-  }, [uplotData, chartWidth, buildOptions, onZoom]);
+  }, [variables, chartWidth, buildOptions, onZoom, uplotData]);
 
-  // Apply external zoom range
+  // Update chart data without rebuilding (preserves zoom)
+  useEffect(() => {
+    if (chartRef.current && uplotData) {
+      // Use setData to update without destroying the chart
+      chartRef.current.setData(uplotData);
+
+      // Reapply zoom range after data update (setData resets zoom)
+      if (zoomRange) {
+        chartRef.current.setScale('x', zoomRange);
+      }
+    }
+  }, [uplotData, zoomRange]);
+
+  // Apply external zoom range (when zoomRange prop changes independently)
   useEffect(() => {
     if (chartRef.current && zoomRange) {
       chartRef.current.setScale('x', zoomRange);
