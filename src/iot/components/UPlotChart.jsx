@@ -226,7 +226,7 @@ const UPlotChart = ({
       hooks: {
         draw: [
           (u) => {
-            // Draw alarm-colored line segments and threshold lines
+            // Draw filled alarm zones and threshold lines
             const ctx = u.ctx;
             const { left, top, width, height } = u.bbox;
 
@@ -249,117 +249,162 @@ const UPlotChart = ({
               ctx.rect(left, top, width, height);
               ctx.clip();
 
-              // Draw red line segments where values exceed thresholds
-              ctx.strokeStyle = '#ef4444';
-              ctx.lineWidth = 2.5;
-              ctx.lineCap = 'round';
-              ctx.lineJoin = 'round';
-
-              // Helper to check if value is in alarm
-              const isInAlarm = (val) => {
-                if (maxAlarm !== null && val > maxAlarm) return true;
-                if (minAlarm !== null && val < minAlarm) return true;
-                return false;
-              };
+              // Fill style for alarm zones (semi-transparent red)
+              ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
 
               // Helper to find crossing point with a threshold
-              const findCrossing = (v1, v2, threshold, x1, x2, y1, y2) => {
+              const findCrossing = (v1, v2, threshold, t1, t2) => {
                 const ratio = (threshold - v1) / (v2 - v1);
                 return {
-                  x: x1 + ratio * (x2 - x1),
-                  y: y1 + ratio * (y2 - y1),
+                  t: t1 + ratio * (t2 - t1),
                   val: threshold
                 };
               };
 
-              for (let i = 0; i < seriesData.length - 1; i++) {
-                const val1 = seriesData[i];
-                const val2 = seriesData[i + 1];
+              // Draw filled area for values above maxAlarm
+              if (maxAlarm !== null) {
+                const maxY = u.valToPos(maxAlarm, 'y', true);
 
-                if (val1 === null || val2 === null) continue;
+                ctx.beginPath();
+                let inAlarmZone = false;
+                let lastX = null;
 
-                const x1 = u.valToPos(timestamps[i], 'x', true);
-                const x2 = u.valToPos(timestamps[i + 1], 'x', true);
-
-                if (x2 < left || x1 > left + width) continue;
-
-                const y1 = u.valToPos(val1, 'y', true);
-                const y2 = u.valToPos(val2, 'y', true);
-
-                const inAlarm1 = isInAlarm(val1);
-                const inAlarm2 = isInAlarm(val2);
-
-                // Collect all threshold crossings in this segment
-                const crossings = [];
-
-                // Check max threshold crossing
-                if (maxAlarm !== null) {
-                  const crosses = (val1 > maxAlarm) !== (val2 > maxAlarm);
-                  if (crosses) {
-                    crossings.push(findCrossing(val1, val2, maxAlarm, x1, x2, y1, y2));
+                for (let i = 0; i < seriesData.length; i++) {
+                  const val = seriesData[i];
+                  if (val === null) {
+                    if (inAlarmZone) {
+                      // Close the current zone
+                      ctx.lineTo(lastX, maxY);
+                      ctx.closePath();
+                      ctx.fill();
+                      ctx.beginPath();
+                      inAlarmZone = false;
+                    }
+                    continue;
                   }
+
+                  const x = u.valToPos(timestamps[i], 'x', true);
+                  const y = u.valToPos(val, 'y', true);
+
+                  // Check for crossing from previous point
+                  if (i > 0 && seriesData[i - 1] !== null) {
+                    const prevVal = seriesData[i - 1];
+                    const prevX = u.valToPos(timestamps[i - 1], 'x', true);
+
+                    // Crossing into alarm zone
+                    if (prevVal <= maxAlarm && val > maxAlarm) {
+                      const cross = findCrossing(prevVal, val, maxAlarm, timestamps[i - 1], timestamps[i]);
+                      const crossX = u.valToPos(cross.t, 'x', true);
+                      ctx.moveTo(crossX, maxY);
+                      ctx.lineTo(x, y);
+                      inAlarmZone = true;
+                    }
+                    // Crossing out of alarm zone
+                    else if (prevVal > maxAlarm && val <= maxAlarm) {
+                      const cross = findCrossing(prevVal, val, maxAlarm, timestamps[i - 1], timestamps[i]);
+                      const crossX = u.valToPos(cross.t, 'x', true);
+                      ctx.lineTo(crossX, maxY);
+                      ctx.closePath();
+                      ctx.fill();
+                      ctx.beginPath();
+                      inAlarmZone = false;
+                    }
+                    // Continue in alarm zone
+                    else if (val > maxAlarm && inAlarmZone) {
+                      ctx.lineTo(x, y);
+                    }
+                    // Start new alarm zone (first point above threshold)
+                    else if (val > maxAlarm && !inAlarmZone) {
+                      ctx.moveTo(x, maxY);
+                      ctx.lineTo(x, y);
+                      inAlarmZone = true;
+                    }
+                  } else if (val > maxAlarm) {
+                    // First point is in alarm zone
+                    ctx.moveTo(x, maxY);
+                    ctx.lineTo(x, y);
+                    inAlarmZone = true;
+                  }
+
+                  lastX = x;
                 }
 
-                // Check min threshold crossing
-                if (minAlarm !== null) {
-                  const crosses = (val1 < minAlarm) !== (val2 < minAlarm);
-                  if (crosses) {
-                    crossings.push(findCrossing(val1, val2, minAlarm, x1, x2, y1, y2));
+                // Close final zone if still in alarm
+                if (inAlarmZone && lastX !== null) {
+                  ctx.lineTo(lastX, maxY);
+                  ctx.closePath();
+                  ctx.fill();
+                }
+              }
+
+              // Draw filled area for values below minAlarm
+              if (minAlarm !== null) {
+                const minY = u.valToPos(minAlarm, 'y', true);
+
+                ctx.beginPath();
+                let inAlarmZone = false;
+                let lastX = null;
+
+                for (let i = 0; i < seriesData.length; i++) {
+                  const val = seriesData[i];
+                  if (val === null) {
+                    if (inAlarmZone) {
+                      ctx.lineTo(lastX, minY);
+                      ctx.closePath();
+                      ctx.fill();
+                      ctx.beginPath();
+                      inAlarmZone = false;
+                    }
+                    continue;
                   }
+
+                  const x = u.valToPos(timestamps[i], 'x', true);
+                  const y = u.valToPos(val, 'y', true);
+
+                  if (i > 0 && seriesData[i - 1] !== null) {
+                    const prevVal = seriesData[i - 1];
+
+                    // Crossing into alarm zone (going below min)
+                    if (prevVal >= minAlarm && val < minAlarm) {
+                      const cross = findCrossing(prevVal, val, minAlarm, timestamps[i - 1], timestamps[i]);
+                      const crossX = u.valToPos(cross.t, 'x', true);
+                      ctx.moveTo(crossX, minY);
+                      ctx.lineTo(x, y);
+                      inAlarmZone = true;
+                    }
+                    // Crossing out of alarm zone
+                    else if (prevVal < minAlarm && val >= minAlarm) {
+                      const cross = findCrossing(prevVal, val, minAlarm, timestamps[i - 1], timestamps[i]);
+                      const crossX = u.valToPos(cross.t, 'x', true);
+                      ctx.lineTo(crossX, minY);
+                      ctx.closePath();
+                      ctx.fill();
+                      ctx.beginPath();
+                      inAlarmZone = false;
+                    }
+                    // Continue in alarm zone
+                    else if (val < minAlarm && inAlarmZone) {
+                      ctx.lineTo(x, y);
+                    }
+                    // Start new alarm zone
+                    else if (val < minAlarm && !inAlarmZone) {
+                      ctx.moveTo(x, minY);
+                      ctx.lineTo(x, y);
+                      inAlarmZone = true;
+                    }
+                  } else if (val < minAlarm) {
+                    ctx.moveTo(x, minY);
+                    ctx.lineTo(x, y);
+                    inAlarmZone = true;
+                  }
+
+                  lastX = x;
                 }
 
-                // Sort crossings by x position
-                crossings.sort((a, b) => a.x - b.x);
-
-                // Draw alarm portions
-                if (crossings.length === 0) {
-                  // No crossings - draw full segment if in alarm
-                  if (inAlarm1 && inAlarm2) {
-                    ctx.beginPath();
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(x2, y2);
-                    ctx.stroke();
-                  }
-                } else if (crossings.length === 1) {
-                  // One crossing
-                  const cross = crossings[0];
-                  if (inAlarm1) {
-                    ctx.beginPath();
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(cross.x, cross.y);
-                    ctx.stroke();
-                  }
-                  if (inAlarm2) {
-                    ctx.beginPath();
-                    ctx.moveTo(cross.x, cross.y);
-                    ctx.lineTo(x2, y2);
-                    ctx.stroke();
-                  }
-                } else if (crossings.length === 2) {
-                  // Two crossings (segment goes through both thresholds)
-                  const cross1 = crossings[0];
-                  const cross2 = crossings[1];
-
-                  if (inAlarm1) {
-                    ctx.beginPath();
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(cross1.x, cross1.y);
-                    ctx.stroke();
-                  }
-                  // Middle section - check if it's in alarm
-                  const midVal = (cross1.val + cross2.val) / 2;
-                  if (isInAlarm(midVal)) {
-                    ctx.beginPath();
-                    ctx.moveTo(cross1.x, cross1.y);
-                    ctx.lineTo(cross2.x, cross2.y);
-                    ctx.stroke();
-                  }
-                  if (inAlarm2) {
-                    ctx.beginPath();
-                    ctx.moveTo(cross2.x, cross2.y);
-                    ctx.lineTo(x2, y2);
-                    ctx.stroke();
-                  }
+                if (inAlarmZone && lastX !== null) {
+                  ctx.lineTo(lastX, minY);
+                  ctx.closePath();
+                  ctx.fill();
                 }
               }
 
