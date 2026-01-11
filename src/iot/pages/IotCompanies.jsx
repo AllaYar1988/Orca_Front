@@ -94,42 +94,42 @@ const IotCompanies = () => {
 
       {/* Stats Overview */}
       {companies.length > 0 && (
-        <div className="iot-stats-grid" style={{ marginBottom: '1.5rem' }}>
-          <div className="iot-stat-card">
+        <div className="iot-stats-grid">
+          <div className="iot-stat-card" style={{ '--stat-color': '#3b82f6', '--stat-color-dark': '#1d4ed8' }}>
             <div className="iot-stat-icon blue">
               <i className="bi bi-building"></i>
             </div>
-            <div>
+            <div className="iot-stat-info">
               <div className="iot-stat-value">{stats.totalCompanies}</div>
               <div className="iot-stat-label">Companies</div>
             </div>
           </div>
 
-          <div className="iot-stat-card">
-            <div className="iot-stat-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+          <div className="iot-stat-card" style={{ '--stat-color': '#8b5cf6', '--stat-color-dark': '#7c3aed' }}>
+            <div className="iot-stat-icon purple">
               <i className="bi bi-cpu"></i>
             </div>
-            <div>
+            <div className="iot-stat-info">
               <div className="iot-stat-value">{stats.totalDevices}</div>
               <div className="iot-stat-label">Total Devices</div>
             </div>
           </div>
 
-          <div className="iot-stat-card">
+          <div className="iot-stat-card" style={{ '--stat-color': '#10b981', '--stat-color-dark': '#059669' }}>
             <div className="iot-stat-icon green">
-              <i className="bi bi-check-circle"></i>
+              <i className="bi bi-check-circle-fill"></i>
             </div>
-            <div>
+            <div className="iot-stat-info">
               <div className="iot-stat-value">{stats.onlineDevices}</div>
               <div className="iot-stat-label">Online</div>
             </div>
           </div>
 
-          <div className="iot-stat-card">
-            <div className="iot-stat-icon" style={{ background: 'linear-gradient(135deg, #64748b, #475569)' }}>
-              <i className="bi bi-x-circle"></i>
+          <div className="iot-stat-card" style={{ '--stat-color': '#64748b', '--stat-color-dark': '#475569' }}>
+            <div className="iot-stat-icon gray">
+              <i className="bi bi-x-circle-fill"></i>
             </div>
-            <div>
+            <div className="iot-stat-info">
               <div className="iot-stat-value">{stats.offlineDevices}</div>
               <div className="iot-stat-label">Offline</div>
             </div>

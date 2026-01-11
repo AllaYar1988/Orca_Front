@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useIotAuth } from '../context/IotAuthContext';
 import { getCompanyDevices, getDeviceLogs, getDevicesStatus } from '../api/devices';
 import IotLayout from '../components/IotLayout';
@@ -136,12 +136,6 @@ const IotCompanyDevices = () => {
 
   return (
     <IotLayout>
-      <div className="iot-breadcrumb">
-        <Link to="/iot"><i className="bi bi-building"></i> Companies</Link>
-        <i className="bi bi-chevron-right"></i>
-        <span>{company?.name || 'Company'}</span>
-      </div>
-
       <h2 className="iot-page-title">
         <i className="bi bi-hdd-stack"></i> {company?.name} - Devices
       </h2>
