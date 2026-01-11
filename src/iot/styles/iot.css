@@ -1608,6 +1608,13 @@
   box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.15);
 }
 
+/* Logs status group - holds live badge and export limit warning */
+.logs-status-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 /* Live Badge */
 .live-badge {
   display: inline-flex;
@@ -1712,6 +1719,14 @@
     flex-direction: column;
     gap: 0.75rem;
     align-items: flex-start;
+  }
+
+  .date-picker-group {
+    flex-wrap: wrap;
+  }
+
+  .logs-status-group {
+    flex-wrap: wrap;
   }
 
   .iot-pagination {

@@ -586,7 +586,9 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const limit = 50;
+  const EXPORT_LIMIT = 10000; // Maximum records to export
 
   // Check if viewing only today's data (both from and to are today)
   const isToday = dateFrom === today && dateTo === today;
@@ -662,6 +664,97 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
     setDateFrom(today);
     setDateTo(today);
     setPage(1);
+  };
+
+  // Export logs to Excel (CSV format)
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      let exportLogs = [];
+      let wasLimited = false;
+
+      if (isToday) {
+        // Use today's logs from parent
+        exportLogs = [...todayLogs].sort((a, b) =>
+          new Date(b.logged_at) - new Date(a.logged_at)
+        );
+        if (exportLogs.length > EXPORT_LIMIT) {
+          exportLogs = exportLogs.slice(0, EXPORT_LIMIT);
+          wasLimited = true;
+        }
+      } else {
+        // Fetch all logs for the date range (up to limit)
+        const from = `${dateFrom}T00:00:00`;
+        const to = `${dateTo}T23:59:59`;
+        const response = await getDeviceLogsRange(deviceId, from, to, {
+          limit: EXPORT_LIMIT,
+          offset: 0
+        });
+
+        if (response.success) {
+          exportLogs = (response.logs || []).sort((a, b) =>
+            new Date(b.logged_at) - new Date(a.logged_at)
+          );
+          // Check if total exceeds our limit
+          if (response.total > EXPORT_LIMIT) {
+            wasLimited = true;
+          }
+        }
+      }
+
+      if (exportLogs.length === 0) {
+        alert('No data to export for the selected date range.');
+        return;
+      }
+
+      // Build CSV content
+      const headers = ['Time', 'Sensor Key', 'Sensor Name', 'Value', 'Unit', 'Alarm Status'];
+      const rows = exportLogs.map(log => {
+        const displayName = getDisplayName(log.log_key);
+        const unit = getUnit(log.log_key);
+        const alarmStatus = checkLogAlarm(log.log_key, log.log_value);
+        const alarmText = alarmStatus.isAlarm ? (alarmStatus.type === 'high' ? 'HIGH' : 'LOW') : '';
+
+        return [
+          new Date(log.logged_at).toLocaleString(),
+          log.log_key || '',
+          displayName,
+          log.log_value || '',
+          unit,
+          alarmText
+        ].map(cell => {
+          // Escape quotes and wrap in quotes if contains comma or quote
+          const str = String(cell);
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        }).join(',');
+      });
+
+      const csvContent = [headers.join(','), ...rows].join('\n');
+
+      // Create and trigger download
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const fileName = `logs_${dateFrom}_to_${dateTo}.csv`;
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+
+      // Show message if data was limited
+      if (wasLimited) {
+        alert(`Export limited to ${EXPORT_LIMIT.toLocaleString()} records. Total available: ${totalCount.toLocaleString()}`);
+      }
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export logs. Please try again.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Get display name for a log key
@@ -772,12 +865,35 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
                   Today
                 </button>
               )}
+              <button
+                className="iot-btn-sm iot-btn-outline"
+                onClick={handleExport}
+                disabled={exporting || totalCount === 0}
+                title={totalCount > EXPORT_LIMIT ? `Export limited to ${EXPORT_LIMIT.toLocaleString()} records` : 'Export to Excel (CSV)'}
+              >
+                {exporting ? (
+                  <>
+                    <i className="bi bi-hourglass-split"></i> Exporting...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-download"></i> Export
+                  </>
+                )}
+              </button>
             </div>
-            {isToday && (
-              <span className="live-badge">
-                <span className="live-dot"></span> Live
-              </span>
-            )}
+            <div className="logs-status-group">
+              {isToday && (
+                <span className="live-badge">
+                  <span className="live-dot"></span> Live
+                </span>
+              )}
+              {totalCount > EXPORT_LIMIT && (
+                <span className="iot-badge warning" title={`Export will be limited to ${EXPORT_LIMIT.toLocaleString()} records`}>
+                  <i className="bi bi-exclamation-triangle"></i> {EXPORT_LIMIT.toLocaleString()} max export
+                </span>
+              )}
+            </div>
           </div>
 
           {loading ? (
