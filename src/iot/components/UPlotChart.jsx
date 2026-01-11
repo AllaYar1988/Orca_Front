@@ -498,11 +498,18 @@ const UPlotChart = ({
     };
   }, [chartWidth, height, variables, showLegend, onZoom, syncKey]);
 
+  // Store cleanup functions separately so they survive chartRef.current changes
+  const cleanupRef = useRef({ touch: null });
+
   // Initialize/update chart
   useEffect(() => {
     if (!containerRef.current || !uplotData || chartWidth === 0) return;
 
-    // Clean up existing chart
+    // Clean up existing chart and touch listeners
+    if (cleanupRef.current.touch) {
+      cleanupRef.current.touch();
+      cleanupRef.current.touch = null;
+    }
     if (chartRef.current) {
       chartRef.current.destroy();
       chartRef.current = null;
@@ -511,13 +518,127 @@ const UPlotChart = ({
     const opts = buildOptions();
     chartRef.current = new uPlot(opts, uplotData, containerRef.current);
 
+    // Add touch support for mobile pinch/swipe zoom
+    const over = chartRef.current.over;
+    if (over) {
+      let touchStartX = null;
+      let touchStartY = null;
+      let touchStartVal = null;
+      let initialPinchDistance = null;
+      let initialScaleMin = null;
+      let initialScaleMax = null;
+
+      const getTouchDistance = (touches) => {
+        if (touches.length < 2) return null;
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      };
+
+      const getTouchCenter = (touches, rect) => {
+        if (touches.length < 2) return null;
+        return {
+          x: ((touches[0].clientX + touches[1].clientX) / 2) - rect.left,
+          y: ((touches[0].clientY + touches[1].clientY) / 2) - rect.top
+        };
+      };
+
+      const handleTouchStart = (e) => {
+        if (!chartRef.current) return;
+
+        if (e.touches.length === 2) {
+          // Pinch zoom start
+          initialPinchDistance = getTouchDistance(e.touches);
+          initialScaleMin = chartRef.current.scales.x.min;
+          initialScaleMax = chartRef.current.scales.x.max;
+          e.preventDefault();
+        } else if (e.touches.length === 1) {
+          // Single touch - drag to zoom
+          const touch = e.touches[0];
+          const rect = over.getBoundingClientRect();
+          touchStartX = touch.clientX - rect.left;
+          touchStartY = touch.clientY;
+          touchStartVal = chartRef.current.posToVal(touchStartX, 'x');
+        }
+      };
+
+      const handleTouchMove = (e) => {
+        if (!chartRef.current) return;
+
+        if (e.touches.length === 2 && initialPinchDistance !== null) {
+          // Pinch zoom
+          const currentDistance = getTouchDistance(e.touches);
+          if (currentDistance && initialScaleMin !== null && initialScaleMax !== null) {
+            const scale = initialPinchDistance / currentDistance;
+            const range = initialScaleMax - initialScaleMin;
+            const center = (initialScaleMin + initialScaleMax) / 2;
+            const newRange = range * scale;
+            const newMin = center - newRange / 2;
+            const newMax = center + newRange / 2;
+
+            if (onZoom) {
+              onZoom({ min: newMin, max: newMax });
+            }
+          }
+          e.preventDefault();
+        }
+      };
+
+      const handleTouchEnd = (e) => {
+        if (!chartRef.current) return;
+
+        // Handle swipe-to-zoom (single finger drag)
+        if (touchStartX !== null && e.changedTouches.length === 1 && initialPinchDistance === null) {
+          const touch = e.changedTouches[0];
+          const rect = over.getBoundingClientRect();
+          const touchEndX = touch.clientX - rect.left;
+          const touchEndY = touch.clientY;
+          const touchEndVal = chartRef.current.posToVal(touchEndX, 'x');
+
+          const deltaX = Math.abs(touchEndX - touchStartX);
+          const deltaY = Math.abs(touchEndY - touchStartY);
+
+          // Only zoom if horizontal swipe is dominant and long enough
+          if (deltaX > deltaY && deltaX > 30) {
+            const minVal = Math.min(touchStartVal, touchEndVal);
+            const maxVal = Math.max(touchStartVal, touchEndVal);
+            if (onZoom) {
+              onZoom({ min: minVal, max: maxVal });
+            }
+          }
+        }
+
+        // Reset all touch state
+        touchStartX = null;
+        touchStartY = null;
+        touchStartVal = null;
+        initialPinchDistance = null;
+        initialScaleMin = null;
+        initialScaleMax = null;
+      };
+
+      over.addEventListener('touchstart', handleTouchStart, { passive: false });
+      over.addEventListener('touchmove', handleTouchMove, { passive: false });
+      over.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+      cleanupRef.current.touch = () => {
+        over.removeEventListener('touchstart', handleTouchStart);
+        over.removeEventListener('touchmove', handleTouchMove);
+        over.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+
     return () => {
+      if (cleanupRef.current.touch) {
+        cleanupRef.current.touch();
+        cleanupRef.current.touch = null;
+      }
       if (chartRef.current) {
         chartRef.current.destroy();
         chartRef.current = null;
       }
     };
-  }, [uplotData, chartWidth, buildOptions]);
+  }, [uplotData, chartWidth, buildOptions, onZoom]);
 
   // Apply external zoom range
   useEffect(() => {
