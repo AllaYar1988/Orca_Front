@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { FiMenu, FiX } from 'react-icons/fi';
-import logo from '../assets/logo.png';
+import { TbNetwork } from 'react-icons/tb';
 import './Navbar.css';
 
 function Navbar() {
@@ -14,7 +14,9 @@ function Navbar() {
     <nav className="navbar">
       <div className="container navbar-container">
         <Link to="/" className="navbar-logo" onClick={closeMenu}>
-          <img src={logo} alt="MycoGrid" className="logo-image" />
+          <div className="logo-icon">
+            <TbNetwork />
+          </div>
           <span className="logo-text">
             <span className="logo-myco">Myco</span>
             <span className="logo-grid">Grid</span>
