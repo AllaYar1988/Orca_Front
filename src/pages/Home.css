@@ -496,18 +496,36 @@
 }
 
 /* =============================================
-   COURSES PREVIEW SECTION
+   COURSES PREVIEW SECTION - DARK THEME
    ============================================= */
 
 .courses-preview {
-  background: #ffffff;
+  background: linear-gradient(180deg, #0d1117 0%, #1a1a2e 50%, #0d1117 100%);
   position: relative;
   padding: 5rem 0;
+  overflow: hidden;
+}
+
+/* Circuit background pattern */
+.courses-preview::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    linear-gradient(rgba(0, 179, 113, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 179, 113, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
 }
 
 .section-header {
   text-align: center;
   margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
 }
 
 .section-tag {
@@ -518,6 +536,7 @@
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   color: var(--primary-green);
   background: rgba(0, 179, 113, 0.1);
+  border: 1px solid rgba(0, 179, 113, 0.2);
   padding: 0.4rem 0.8rem;
   border-radius: var(--radius-sm);
   margin-bottom: 1rem;
@@ -526,12 +545,12 @@
 .section-title {
   font-size: 2.5rem;
   margin-bottom: 0.75rem;
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 .section-subtitle {
   font-size: 1.1rem;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.6);
   margin-bottom: 0;
 }
 
@@ -539,13 +558,15 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 2rem;
+  position: relative;
+  z-index: 1;
 }
 
-/* Course Card - Technical Style */
+/* Course Card - Dark Technical Style */
 .course-card {
   position: relative;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-lg);
   padding: 2rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -553,6 +574,7 @@
   display: flex;
   flex-direction: column;
   text-decoration: none;
+  backdrop-filter: blur(10px);
 }
 
 /* Card Circuit Pattern */
@@ -560,18 +582,18 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 100px;
-  height: 100px;
-  opacity: 0;
+  width: 120px;
+  height: 120px;
+  opacity: 0.3;
   transition: opacity var(--transition-normal);
   background:
-    linear-gradient(90deg, transparent 49%, rgba(0, 179, 113, 0.1) 49%, rgba(0, 179, 113, 0.1) 51%, transparent 51%),
-    linear-gradient(0deg, transparent 49%, rgba(0, 179, 113, 0.1) 49%, rgba(0, 179, 113, 0.1) 51%, transparent 51%);
+    linear-gradient(90deg, transparent 49%, rgba(0, 179, 113, 0.15) 49%, rgba(0, 179, 113, 0.15) 51%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(0, 179, 113, 0.15) 49%, rgba(0, 179, 113, 0.15) 51%, transparent 51%);
   background-size: 20px 20px;
 }
 
 .course-card:hover .card-circuit {
-  opacity: 1;
+  opacity: 0.6;
 }
 
 /* Card Glow Effect */
@@ -580,21 +602,24 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 4px;
-  opacity: 0;
+  height: 3px;
+  opacity: 0.5;
   transition: opacity var(--transition-normal);
 }
 
 .course-card.green .card-glow {
   background: linear-gradient(90deg, var(--primary-green), var(--accent-cyan));
+  box-shadow: 0 0 20px rgba(0, 179, 113, 0.3);
 }
 
 .course-card.blue .card-glow {
   background: linear-gradient(90deg, var(--primary-blue), var(--accent-cyan));
+  box-shadow: 0 0 20px rgba(0, 102, 204, 0.3);
 }
 
 .course-card.orange .card-glow {
   background: linear-gradient(90deg, var(--accent-orange), #ffbd2e);
+  box-shadow: 0 0 20px rgba(229, 90, 43, 0.3);
 }
 
 .course-card:hover .card-glow {
@@ -603,12 +628,13 @@
 
 .course-card:hover {
   transform: translateY(-8px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
 
-.course-card.green:hover { border-color: var(--primary-green); }
-.course-card.blue:hover { border-color: var(--primary-blue); }
-.course-card.orange:hover { border-color: var(--accent-orange); }
+.course-card.green:hover { border-color: rgba(0, 179, 113, 0.5); }
+.course-card.blue:hover { border-color: rgba(0, 102, 204, 0.5); }
+.course-card.orange:hover { border-color: rgba(229, 90, 43, 0.5); }
 
 /* Course Icon */
 .course-icon {
@@ -644,35 +670,35 @@
   transform: scale(1.2);
 }
 
-.course-card.green .icon-ring { border-color: var(--primary-green); }
-.course-card.blue .icon-ring { border-color: var(--primary-blue); }
-.course-card.orange .icon-ring { border-color: var(--accent-orange); }
+.course-card.green .icon-ring { border-color: var(--primary-green); box-shadow: 0 0 15px rgba(0, 179, 113, 0.3); }
+.course-card.blue .icon-ring { border-color: var(--primary-blue); box-shadow: 0 0 15px rgba(0, 102, 204, 0.3); }
+.course-card.orange .icon-ring { border-color: var(--accent-orange); box-shadow: 0 0 15px rgba(229, 90, 43, 0.3); }
 
 .course-card.green .course-icon {
-  background: rgba(0, 179, 113, 0.1);
+  background: rgba(0, 179, 113, 0.15);
   color: var(--primary-green);
 }
 
 .course-card.blue .course-icon {
-  background: rgba(0, 102, 204, 0.1);
+  background: rgba(0, 102, 204, 0.15);
   color: var(--primary-blue);
 }
 
 .course-card.orange .course-icon {
-  background: rgba(229, 90, 43, 0.1);
+  background: rgba(229, 90, 43, 0.15);
   color: var(--accent-orange);
 }
 
 .course-card h3 {
   margin-bottom: 0.75rem;
   font-size: 1.25rem;
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 .course-card p {
   margin-bottom: 1rem;
   font-size: 0.95rem;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.6);
   line-height: 1.6;
   flex-grow: 1;
 }
@@ -688,15 +714,29 @@
 .tech-tag {
   font-size: 0.7rem;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  padding: 0.2rem 0.5rem;
-  background: rgba(0, 0, 0, 0.04);
+  padding: 0.25rem 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.5);
+  transition: all var(--transition-fast);
 }
 
-.course-card.green .tech-tag { color: var(--primary-green); background: rgba(0, 179, 113, 0.08); }
-.course-card.blue .tech-tag { color: var(--primary-blue); background: rgba(0, 102, 204, 0.08); }
-.course-card.orange .tech-tag { color: var(--accent-orange); background: rgba(229, 90, 43, 0.08); }
+.course-card.green .tech-tag {
+  color: var(--primary-green);
+  background: rgba(0, 179, 113, 0.1);
+  border-color: rgba(0, 179, 113, 0.2);
+}
+.course-card.blue .tech-tag {
+  color: var(--primary-blue);
+  background: rgba(0, 102, 204, 0.1);
+  border-color: rgba(0, 102, 204, 0.2);
+}
+.course-card.orange .tech-tag {
+  color: var(--accent-orange);
+  background: rgba(229, 90, 43, 0.1);
+  border-color: rgba(229, 90, 43, 0.2);
+}
 
 /* Card Footer */
 .card-footer {
@@ -704,20 +744,20 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 1rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   margin-top: auto;
 }
 
 .explore-text {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.5);
   transition: color var(--transition-fast);
 }
 
 .arrow-icon {
   font-size: 1rem;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.5);
   transition: all var(--transition-fast);
   transform: translateX(0);
 }
