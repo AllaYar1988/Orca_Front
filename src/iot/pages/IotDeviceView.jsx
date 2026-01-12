@@ -201,7 +201,7 @@ const IotDeviceView = () => {
     };
 
     fetchTodayLogs();
-  }, [deviceId]);
+  }, [deviceId, device]);
 
   // Fetch tab-specific data
   useEffect(() => {
