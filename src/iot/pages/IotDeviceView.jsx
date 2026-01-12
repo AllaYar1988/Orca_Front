@@ -462,6 +462,7 @@ const processSensorReadings = (logs, sensorConfigs = []) => {
       history: keyLogs, // Pass raw logs directly with logged_at
       lastUpdate: latest.logged_at,
       config: config, // Include full config for reference
+      status: latest.status || null, // Backend status (normal, warning, critical)
     };
   });
 
@@ -473,8 +474,15 @@ const processSensorReadings = (logs, sensorConfigs = []) => {
 
 /**
  * Check if a sensor reading is in alarm state
+ * Uses backend status if available, falls back to threshold calculation
  */
 const checkReadingAlarm = (reading) => {
+  // Prefer backend status if available (calculated at ingestion time)
+  if (reading.status && reading.status !== 'normal') {
+    return true;
+  }
+
+  // Fallback: calculate from config for backwards compatibility
   const config = reading.config;
   if (!config || !config.alarm_enabled) return false;
 
@@ -752,8 +760,10 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
       const rows = exportLogs.map(log => {
         const displayName = getDisplayName(log.log_key);
         const unit = getUnit(log.log_key);
-        const alarmStatus = checkLogAlarm(log.log_key, log.log_value);
-        const alarmText = alarmStatus.isAlarm ? (alarmStatus.type === 'high' ? 'HIGH' : 'LOW') : '';
+        const alarmStatus = checkLogAlarm(log.log_key, log.log_value, log.status);
+        const alarmText = alarmStatus.isAlarm
+          ? (alarmStatus.type === 'high' ? 'HIGH' : alarmStatus.type === 'low' ? 'LOW' : alarmStatus.type?.toUpperCase() || 'ALARM')
+          : '';
 
         return [
           new Date(log.logged_at).toLocaleString(),
@@ -816,28 +826,42 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
   };
 
   // Check if log value is in alarm state
-  const checkLogAlarm = (logKey, logValue) => {
+  // Uses backend status if available, falls back to threshold calculation
+  const checkLogAlarm = (logKey, logValue, logStatus = null) => {
+    // Prefer backend status if available
+    if (logStatus && logStatus !== 'normal') {
+      return {
+        isAlarm: true,
+        type: logStatus, // 'warning' or 'critical'
+        status: logStatus
+      };
+    }
+    if (logStatus === 'normal') {
+      return { isAlarm: false, type: null, status: 'normal' };
+    }
+
+    // Fallback: calculate from config
     const config = configMap[logKey];
     if (!config || !config.alarm_enabled) {
-      return { isAlarm: false, type: null };
+      return { isAlarm: false, type: null, status: 'normal' };
     }
 
     const value = parseFloat(logValue);
     if (isNaN(value)) {
-      return { isAlarm: false, type: null };
+      return { isAlarm: false, type: null, status: 'normal' };
     }
 
     const minAlarm = config.min_alarm;
     const maxAlarm = config.max_alarm;
 
     if (minAlarm !== null && minAlarm !== undefined && value < parseFloat(minAlarm)) {
-      return { isAlarm: true, type: 'low' };
+      return { isAlarm: true, type: 'low', status: 'critical' };
     }
     if (maxAlarm !== null && maxAlarm !== undefined && value > parseFloat(maxAlarm)) {
-      return { isAlarm: true, type: 'high' };
+      return { isAlarm: true, type: 'high', status: 'critical' };
     }
 
-    return { isAlarm: false, type: null };
+    return { isAlarm: false, type: null, status: 'normal' };
   };
 
   const totalPages = Math.ceil(totalCount / limit);
@@ -963,10 +987,11 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
                       const displayName = getDisplayName(log.log_key);
                       const unit = getUnit(log.log_key);
                       const hasLabel = displayName !== log.log_key;
-                      const alarmStatus = checkLogAlarm(log.log_key, log.log_value);
+                      const alarmStatus = checkLogAlarm(log.log_key, log.log_value, log.status);
+                      const alarmClass = alarmStatus.status === 'warning' ? 'log-row--warning' : (alarmStatus.isAlarm ? 'log-row--alarm' : '');
 
                       return (
-                        <tr key={log.id} className={alarmStatus.isAlarm ? 'log-row--alarm' : ''}>
+                        <tr key={log.id} className={alarmClass}>
                           <td className="iot-nowrap">{new Date(log.logged_at).toLocaleString()}</td>
                           <td>
                             {hasLabel ? (
@@ -979,14 +1004,14 @@ const LogsTab = ({ logs: todayLogs, sensorConfigs, deviceId }) => {
                             )}
                           </td>
                           <td className="iot-truncate">
-                            <span className={alarmStatus.isAlarm ? 'log-value--alarm' : ''}>
+                            <span className={alarmStatus.isAlarm ? (alarmStatus.status === 'warning' ? 'log-value--warning' : 'log-value--alarm') : ''}>
                               {log.log_value || '-'}
                               {unit && <span className="log-unit"> {unit}</span>}
                             </span>
                             {alarmStatus.isAlarm && (
-                              <span className={`log-alarm-badge log-alarm-badge--${alarmStatus.type}`}>
+                              <span className={`log-alarm-badge log-alarm-badge--${alarmStatus.status || alarmStatus.type}`}>
                                 <i className="bi bi-exclamation-triangle-fill"></i>
-                                {alarmStatus.type === 'low' ? 'LOW' : 'HIGH'}
+                                {alarmStatus.type === 'low' ? 'LOW' : alarmStatus.type === 'high' ? 'HIGH' : alarmStatus.type === 'warning' ? 'WARN' : 'ALERT'}
                               </span>
                             )}
                           </td>

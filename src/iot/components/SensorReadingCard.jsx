@@ -49,33 +49,49 @@ const formatValue = (value, unit) => {
 };
 
 /**
- * Check alarm status based on value and sensor config
+ * Check alarm status - uses backend status if available, falls back to threshold calculation
  * @param {number} value - Current sensor value
  * @param {object} sensorConfig - Sensor configuration with alarm settings
- * @returns {object} { isAlarm: bool, type: 'low'|'high'|null }
+ * @param {string} backendStatus - Status from backend API (normal, warning, critical)
+ * @returns {object} { isAlarm: bool, type: 'low'|'high'|'warning'|'critical'|null, status: string }
  */
-const checkAlarmStatus = (value, sensorConfig) => {
+const checkAlarmStatus = (value, sensorConfig, backendStatus = null) => {
+  // Prefer backend status if available (calculated at ingestion time)
+  if (backendStatus && backendStatus !== 'normal') {
+    return {
+      isAlarm: true,
+      type: backendStatus, // 'warning' or 'critical'
+      status: backendStatus
+    };
+  }
+
+  // If backend says normal, trust it
+  if (backendStatus === 'normal') {
+    return { isAlarm: false, type: null, status: 'normal' };
+  }
+
+  // Fallback: Calculate from config (for data without backend status)
   if (!sensorConfig || !sensorConfig.alarm_enabled) {
-    return { isAlarm: false, type: null };
+    return { isAlarm: false, type: null, status: 'normal' };
   }
 
   const numValue = parseFloat(value);
   if (isNaN(numValue)) {
-    return { isAlarm: false, type: null };
+    return { isAlarm: false, type: null, status: 'normal' };
   }
 
   const minAlarm = sensorConfig.min_alarm;
   const maxAlarm = sensorConfig.max_alarm;
 
   if (minAlarm !== null && minAlarm !== undefined && numValue < parseFloat(minAlarm)) {
-    return { isAlarm: true, type: 'low' };
+    return { isAlarm: true, type: 'low', status: 'critical' };
   }
 
   if (maxAlarm !== null && maxAlarm !== undefined && numValue > parseFloat(maxAlarm)) {
-    return { isAlarm: true, type: 'high' };
+    return { isAlarm: true, type: 'high', status: 'critical' };
   }
 
-  return { isAlarm: false, type: null };
+  return { isAlarm: false, type: null, status: 'normal' };
 };
 
 /**
@@ -90,6 +106,7 @@ const checkAlarmStatus = (value, sensorConfig) => {
  * @param {Array} history - Historical data points for sparkline
  * @param {string} className - Additional CSS classes
  * @param {object} sensorConfig - Sensor configuration with alarm settings
+ * @param {string} status - Status from backend API (normal, warning, critical)
  */
 const SensorReadingCard = ({
   type = 'GEN',
@@ -99,23 +116,24 @@ const SensorReadingCard = ({
   history = [],
   className = '',
   sensorConfig = null,
+  status = null,
 }) => {
   const config = getSensorConfig(type);
   const trend = calculateTrend(history);
   const displayName = name || config.label;
   const color = config.color || '#6b7280';
 
-  // Check alarm status
-  const alarmStatus = checkAlarmStatus(value, sensorConfig);
-  const cardClassName = `sensor-reading-card ${className} ${alarmStatus.isAlarm ? 'sensor-reading-card--alarm' : ''}`;
+  // Check alarm status - prefer backend status if available
+  const alarmStatus = checkAlarmStatus(value, sensorConfig, status);
+  const cardClassName = `sensor-reading-card ${className} ${alarmStatus.isAlarm ? 'sensor-reading-card--alarm' : ''} ${alarmStatus.status === 'warning' ? 'sensor-reading-card--warning' : ''}`;
 
   return (
     <div className={cardClassName}>
       {/* Alarm indicator badge */}
       {alarmStatus.isAlarm && (
-        <div className={`sensor-reading-card__alarm-badge sensor-reading-card__alarm-badge--${alarmStatus.type}`}>
+        <div className={`sensor-reading-card__alarm-badge sensor-reading-card__alarm-badge--${alarmStatus.status || alarmStatus.type}`}>
           <i className={`bi bi-exclamation-triangle-fill`}></i>
-          {alarmStatus.type === 'low' ? 'LOW' : 'HIGH'}
+          {alarmStatus.type === 'low' ? 'LOW' : alarmStatus.type === 'high' ? 'HIGH' : alarmStatus.type === 'warning' ? 'WARN' : 'ALERT'}
         </div>
       )}
 

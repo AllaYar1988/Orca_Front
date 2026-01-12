@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useIotAuth } from '../context/IotAuthContext';
-import { getCompanyDevices, getDeviceLogs, getDevicesStatus } from '../api/devices';
+import { getCompanyDevices, getDeviceLogs, getDevicesStatus, getSensorConfigs } from '../api/devices';
 import IotLayout from '../components/IotLayout';
 import DeviceDataCard from '../components/DeviceDataCard';
 import { SENSOR_TYPES } from '../config/sensorTypes';
@@ -17,7 +17,7 @@ const IotCompanyDevices = () => {
   const [filter, setFilter] = useState('all');
 
   // Transform API device data to card format
-  const transformDeviceData = (device, logs = []) => {
+  const transformDeviceData = (device, logs = [], sensorConfigs = []) => {
     const latestByKey = {};
     logs.forEach(log => {
       if (!latestByKey[log.log_key] || new Date(log.logged_at) > new Date(latestByKey[log.log_key].logged_at)) {
@@ -25,17 +25,39 @@ const IotCompanyDevices = () => {
       }
     });
 
+    // Create a map of sensor configs by log_key for quick lookup
+    const configMap = {};
+    sensorConfigs.forEach(config => {
+      configMap[config.log_key] = config;
+    });
+
     const parameters = Object.entries(latestByKey).map(([key, log]) => {
       const typeMatch = key.match(/^([A-Z]{2,4})_?/i);
       const type = typeMatch ? typeMatch[1].toUpperCase() : "GEN";
+      const config = configMap[key];
+      const value = parseFloat(log.log_value) || 0;
+
+      // Use backend status if available (calculated at ingestion time)
+      // Falls back to threshold calculation for backwards compatibility
+      let status = log.status || "normal";
+      if (!log.status && config && config.alarm_enabled) {
+        const minAlarm = parseFloat(config.min_alarm);
+        const maxAlarm = parseFloat(config.max_alarm);
+        if (!isNaN(minAlarm) && value < minAlarm) {
+          status = "critical";
+        } else if (!isNaN(maxAlarm) && value > maxAlarm) {
+          status = "critical";
+        }
+      }
 
       return {
         type: SENSOR_TYPES[type] ? type : "GEN",
         name: log.log_key,
-        value: parseFloat(log.log_value) || log.log_value,
-        unit: log.unit || "",
-        min: 0,
-        max: 100,
+        value: value,
+        unit: config?.unit || log.unit || "",
+        min: config ? parseFloat(config.min_alarm) || 0 : 0,
+        max: config ? parseFloat(config.max_alarm) || 100 : 100,
+        status,
       };
     });
 
@@ -86,11 +108,15 @@ const IotCompanyDevices = () => {
             }
 
             try {
-              const logsRes = await getDeviceLogs(device.id, { limit: 20 });
+              const [logsRes, configsRes] = await Promise.all([
+                getDeviceLogs(device.id, { limit: 20 }),
+                getSensorConfigs(device.id)
+              ]);
               const logs = logsRes.success ? logsRes.logs || [] : [];
-              devicesWithParams.push(transformDeviceData(device, logs));
+              const configs = configsRes.success ? configsRes.configs || [] : [];
+              devicesWithParams.push(transformDeviceData(device, logs, configs));
             } catch {
-              devicesWithParams.push(transformDeviceData(device, []));
+              devicesWithParams.push(transformDeviceData(device, [], []));
             }
           }
           setDevices(devicesWithParams);
@@ -106,11 +132,17 @@ const IotCompanyDevices = () => {
     fetchDevices();
   }, [iotUser, companyId]);
 
+  // Helper to check if device has any warning/critical parameters
+  const hasWarningStatus = (device) => {
+    if (device.status === "warning" || device.status === "error") return true;
+    return device.parameters?.some(p => p.status === "warning" || p.status === "critical");
+  };
+
   const filteredDevices = devices.filter((device) => {
     if (filter === "all") return true;
     if (filter === "online") return device.status === "online";
     if (filter === "offline") return device.status === "offline";
-    if (filter === "warning") return device.status === "warning" || device.status === "error";
+    if (filter === "warning") return hasWarningStatus(device);
     return true;
   });
 
@@ -118,7 +150,7 @@ const IotCompanyDevices = () => {
     total: devices.length,
     online: devices.filter((d) => d.status === "online").length,
     offline: devices.filter((d) => d.status === "offline").length,
-    warning: devices.filter((d) => d.status === "warning" || d.status === "error").length,
+    warning: devices.filter((d) => hasWarningStatus(d)).length,
   };
 
   const handleDeviceClick = (device) => {
