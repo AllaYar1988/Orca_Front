@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useIotAuth } from '../context/IotAuthContext';
 import { iotLogin as apiLogin } from '../api/auth';
-import orcaLogo from '../../assets/orca.png';
+import { TbNetwork } from 'react-icons/tb';
+import { FiUser, FiLock, FiLogIn, FiArrowLeft } from 'react-icons/fi';
 import '../styles/iot.css';
 
 const IotLogin = () => {
@@ -47,17 +48,27 @@ const IotLogin = () => {
 
   return (
     <div className="iot-login-page">
+      {/* Background circuit pattern */}
+      <div className="iot-login-circuit"></div>
+
+      {/* Floating particles */}
+      <div className="iot-login-particles">
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </div>
+
       <div className="iot-login-card">
         <div className="iot-login-header">
-          <img src={orcaLogo} alt="Orca" className="iot-login-logo" />
-          <h1>Orca IoT</h1>
-          <p>User Portal</p>
+          <div className="iot-login-icon">
+            <TbNetwork />
+          </div>
+          <h1><span className="text-white">Myco</span><span className="text-green">Grid</span> IoT</h1>
+          <p>Secure Portal Access</p>
         </div>
 
         <div className="iot-login-body">
           {error && (
             <div className="iot-alert iot-alert-error">
-              <i className="bi bi-exclamation-circle"></i>
               <span>{error}</span>
               <button onClick={() => setError('')}>&times;</button>
             </div>
@@ -66,13 +77,14 @@ const IotLogin = () => {
           <form onSubmit={handleSubmit}>
             <div className="iot-form-group">
               <label htmlFor="username">
-                <i className="bi bi-person"></i> Username
+                <FiUser /> Username
               </label>
               <input
                 type="text"
                 id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
                 required
                 autoFocus
               />
@@ -80,34 +92,37 @@ const IotLogin = () => {
 
             <div className="iot-form-group">
               <label htmlFor="password">
-                <i className="bi bi-lock"></i> Password
+                <FiLock /> Password
               </label>
               <input
                 type="password"
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
                 required
               />
             </div>
 
-            <button type="submit" className="iot-btn-primary" disabled={loading}>
+            <button type="submit" className="iot-login-btn" disabled={loading}>
               {loading ? (
                 <>
                   <span className="iot-spinner-small"></span>
-                  Logging in...
+                  Authenticating...
                 </>
               ) : (
                 <>
-                  <i className="bi bi-box-arrow-in-right"></i>
-                  Login
+                  <FiLogIn />
+                  Sign In
                 </>
               )}
             </button>
           </form>
 
           <div className="iot-login-footer">
-            <Link to="/">Back to MycoGrid</Link>
+            <Link to="/">
+              <FiArrowLeft /> Back to MycoGrid
+            </Link>
           </div>
         </div>
       </div>
