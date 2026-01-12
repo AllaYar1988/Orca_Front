@@ -1,11 +1,46 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiCpu, FiWifi, FiZap, FiArrowRight, FiActivity } from 'react-icons/fi';
+import { FiCpu, FiWifi, FiZap, FiArrowRight, FiTerminal, FiCode, FiDatabase, FiServer } from 'react-icons/fi';
 import './Home.css';
 
 function Home() {
   const coursesRef = useRef(null);
   const ctaRef = useRef(null);
+  const [typedCode, setTypedCode] = useState('');
+
+  const codeSnippet = `#include <esp32.h>
+#include <mqtt.h>
+
+void setup() {
+  WiFi.begin(SSID, PASS);
+  mqtt.connect("broker.io");
+  sensor.init(GPIO_4);
+}
+
+void loop() {
+  float data = sensor.read();
+  mqtt.publish("energy", data);
+  delay(1000);
+}`;
+
+  useEffect(() => {
+    // Typing animation for code
+    let index = 0;
+    const timer = setInterval(() => {
+      if (index <= codeSnippet.length) {
+        setTypedCode(codeSnippet.slice(0, index));
+        index++;
+      } else {
+        // Reset after pause
+        setTimeout(() => {
+          index = 0;
+          setTypedCode('');
+        }, 3000);
+      }
+    }, 50);
+
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const observerOptions = {
@@ -32,23 +67,26 @@ function Home() {
     {
       icon: <FiCpu />,
       title: 'Embedded Systems',
-      description: 'Learn microcontroller programming and hardware interfaces.',
+      description: 'Master microcontroller programming, bare-metal development, and hardware interfaces.',
       color: 'green',
-      link: '/category/embedded-systems'
+      link: '/category/embedded-systems',
+      tech: ['ARM Cortex', 'RTOS', 'C/C++']
     },
     {
       icon: <FiWifi />,
       title: 'IoT Development',
-      description: 'Build connected devices with cloud integration.',
+      description: 'Build connected devices with MQTT, REST APIs, and cloud integration.',
       color: 'blue',
-      link: '/category/iot'
+      link: '/category/iot',
+      tech: ['ESP32', 'MQTT', 'AWS IoT']
     },
     {
       icon: <FiZap />,
       title: 'Energy Monitoring',
-      description: 'Design smart energy metering systems.',
+      description: 'Design smart metering systems with real-time data visualization.',
       color: 'orange',
-      link: '/category/energy-monitoring'
+      link: '/category/energy-monitoring',
+      tech: ['NILM', 'Power Analysis', 'Modbus']
     }
   ];
 
@@ -56,121 +94,165 @@ function Home() {
     <div className="home">
       {/* Hero Section */}
       <section className="hero">
-        {/* Animated Background - Mycelium Network */}
+        {/* Animated Background - Circuit Board Pattern */}
         <div className="hero-bg">
-          {/* Mycelium Network SVG */}
-          <svg className="mycelium-svg" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice">
-            {/* Central hub - bottom center, growing upward like roots */}
+          {/* Circuit Board SVG Pattern */}
+          <svg className="circuit-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="circuitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--primary-green)" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="var(--primary-blue)" stopOpacity="0.1" />
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
 
-            {/* Main trunk branches from center */}
-            <path className="mycelium-branch" d="M600,600 Q580,500 550,400 Q520,300 480,200" />
-            <path className="mycelium-branch delay-1" d="M600,600 Q620,480 680,380 Q740,280 800,180" />
-            <path className="mycelium-branch delay-2" d="M600,600 Q550,520 450,450 Q350,380 250,320" />
-            <path className="mycelium-branch delay-3" d="M600,600 Q650,510 750,440 Q850,370 950,300" />
+            {/* Horizontal circuit traces */}
+            <path className="circuit-trace" d="M0,100 H200 L220,120 H400" />
+            <path className="circuit-trace delay-1" d="M0,200 H150 L170,180 H350 L370,200 H500" />
+            <path className="circuit-trace delay-2" d="M0,350 H100 L120,370 H280" />
+            <path className="circuit-trace delay-3" d="M700,100 H900 L920,120 H1200" />
+            <path className="circuit-trace delay-4" d="M800,250 H950 L970,270 H1200" />
+            <path className="circuit-trace delay-5" d="M850,400 H1000 L1020,380 H1200" />
 
-            {/* Secondary branches - left side */}
-            <path className="mycelium-branch delay-2" d="M480,200 Q420,150 350,120" />
-            <path className="mycelium-branch delay-3" d="M480,200 Q500,140 520,80" />
-            <path className="mycelium-branch delay-4" d="M550,400 Q480,380 400,360" />
-            <path className="mycelium-branch delay-5" d="M550,400 Q520,340 480,280" />
-            <path className="mycelium-branch delay-3" d="M450,450 Q380,420 300,400" />
-            <path className="mycelium-branch delay-4" d="M250,320 Q180,280 100,260" />
-            <path className="mycelium-branch delay-5" d="M250,320 Q220,250 180,180" />
+            {/* Vertical circuit traces */}
+            <path className="circuit-trace delay-2" d="M200,0 V150 L220,170 V300" />
+            <path className="circuit-trace delay-3" d="M350,0 V100 L370,120 V250" />
+            <path className="circuit-trace delay-1" d="M900,0 V180 L920,200 V350" />
+            <path className="circuit-trace delay-4" d="M1050,0 V120 L1070,140 V280" />
 
-            {/* Secondary branches - right side */}
-            <path className="mycelium-branch delay-3" d="M800,180 Q860,140 920,100" />
-            <path className="mycelium-branch delay-4" d="M800,180 Q780,120 760,60" />
-            <path className="mycelium-branch delay-5" d="M680,380 Q720,340 780,300" />
-            <path className="mycelium-branch delay-2" d="M680,380 Q740,420 820,440" />
-            <path className="mycelium-branch delay-3" d="M750,440 Q820,400 900,380" />
-            <path className="mycelium-branch delay-4" d="M950,300 Q1020,260 1100,240" />
-            <path className="mycelium-branch delay-5" d="M950,300 Q980,220 1000,140" />
+            {/* Connection nodes (IC pins) */}
+            <circle className="circuit-node" cx="200" cy="100" r="4" />
+            <circle className="circuit-node delay-1" cx="400" cy="120" r="4" />
+            <circle className="circuit-node delay-2" cx="150" cy="200" r="4" />
+            <circle className="circuit-node delay-3" cx="500" cy="200" r="4" />
+            <circle className="circuit-node delay-4" cx="280" cy="370" r="4" />
+            <circle className="circuit-node delay-5" cx="900" cy="100" r="4" />
+            <circle className="circuit-node delay-1" cx="950" cy="270" r="4" />
+            <circle className="circuit-node delay-2" cx="1000" cy="380" r="4" />
+            <circle className="circuit-node delay-3" cx="200" cy="300" r="4" />
+            <circle className="circuit-node delay-4" cx="350" cy="250" r="4" />
+            <circle className="circuit-node delay-5" cx="920" cy="350" r="4" />
 
-            {/* Tertiary fine branches */}
-            <path className="mycelium-fine delay-1" d="M350,120 Q300,100 240,90" />
-            <path className="mycelium-fine delay-2" d="M350,120 Q340,80 320,40" />
-            <path className="mycelium-fine delay-3" d="M400,360 Q350,340 290,330" />
-            <path className="mycelium-fine delay-4" d="M300,400 Q260,360 220,340" />
-            <path className="mycelium-fine delay-5" d="M100,260 Q60,240 20,230" />
-            <path className="mycelium-fine delay-1" d="M920,100 Q980,70 1040,50" />
-            <path className="mycelium-fine delay-2" d="M920,100 Q940,60 950,20" />
-            <path className="mycelium-fine delay-3" d="M900,380 Q960,360 1020,350" />
-            <path className="mycelium-fine delay-4" d="M820,440 Q880,460 940,470" />
-            <path className="mycelium-fine delay-5" d="M1100,240 Q1150,220 1200,210" />
-
-            {/* Connection nodes - where branches meet */}
-            <circle className="mycelium-node" cx="600" cy="600" r="8" />
-            <circle className="mycelium-node delay-1" cx="480" cy="200" r="5" />
-            <circle className="mycelium-node delay-2" cx="800" cy="180" r="5" />
-            <circle className="mycelium-node delay-3" cx="550" cy="400" r="4" />
-            <circle className="mycelium-node delay-4" cx="680" cy="380" r="4" />
-            <circle className="mycelium-node delay-5" cx="450" cy="450" r="4" />
-            <circle className="mycelium-node delay-1" cx="750" cy="440" r="4" />
-            <circle className="mycelium-node delay-2" cx="250" cy="320" r="4" />
-            <circle className="mycelium-node delay-3" cx="950" cy="300" r="4" />
-            <circle className="mycelium-node delay-4" cx="350" cy="120" r="3" />
-            <circle className="mycelium-node delay-5" cx="920" cy="100" r="3" />
-            <circle className="mycelium-node delay-1" cx="400" cy="360" r="3" />
-            <circle className="mycelium-node delay-2" cx="780" cy="300" r="3" />
-            <circle className="mycelium-node delay-3" cx="300" cy="400" r="3" />
-            <circle className="mycelium-node delay-4" cx="900" cy="380" r="3" />
-            <circle className="mycelium-node delay-5" cx="100" cy="260" r="3" />
-            <circle className="mycelium-node delay-1" cx="1100" cy="240" r="3" />
+            {/* Data flow pulses on traces */}
+            <circle className="data-dot" r="3">
+              <animateMotion dur="3s" repeatCount="indefinite" path="M0,100 H200 L220,120 H400" />
+            </circle>
+            <circle className="data-dot delay-2" r="3">
+              <animateMotion dur="4s" repeatCount="indefinite" path="M700,100 H900 L920,120 H1200" />
+            </circle>
+            <circle className="data-dot delay-4" r="3">
+              <animateMotion dur="3.5s" repeatCount="indefinite" path="M200,0 V150 L220,170 V300" />
+            </circle>
           </svg>
 
-          {/* Floating particles */}
-          <div className="particles">
-            {[...Array(20)].map((_, i) => (
-              <div key={i} className={`particle particle-${i + 1}`} />
-            ))}
-          </div>
+          {/* Grid overlay */}
+          <div className="grid-overlay" />
 
-          {/* Data flow lines */}
-          <div className="data-flow">
-            <div className="data-pulse pulse-1" />
-            <div className="data-pulse pulse-2" />
-            <div className="data-pulse pulse-3" />
+          {/* Floating tech icons */}
+          <div className="floating-icons">
+            <div className="float-icon icon-1"><FiCpu /></div>
+            <div className="float-icon icon-2"><FiDatabase /></div>
+            <div className="float-icon icon-3"><FiServer /></div>
+            <div className="float-icon icon-4"><FiCode /></div>
+            <div className="float-icon icon-5"><FiWifi /></div>
           </div>
         </div>
 
         <div className="container hero-content">
-          <div className="hero-badge">
-            <FiActivity className="badge-icon" />
-            <span>Learn by Building Real Projects</span>
-          </div>
-          <h1>
-            Learn <span className="text-gradient animated-gradient">Embedded Systems</span>
-            <br />& <span className="text-gradient animated-gradient delay">Smart Energy</span>
-          </h1>
-          <p className="hero-tagline">Connecting Knowledge. Powering Systems.</p>
-          <p className="hero-description">
-            Like mycorrhiza networks that connect forests underground, we connect you
-            to the world of embedded systems, IoT, and micro-grid technology.
-          </p>
-          <div className="hero-buttons">
-            <Link to="/courses" className="btn btn-primary btn-glow">
-              View Courses <FiArrowRight />
-            </Link>
-            <Link to="/about" className="btn btn-secondary">
-              Learn More
-            </Link>
+          <div className="hero-layout">
+            {/* Left side - Main content */}
+            <div className="hero-left">
+              <div className="hero-badge">
+                <FiTerminal className="badge-icon" />
+                <span>Build Real Hardware Projects</span>
+                <span className="badge-pulse" />
+              </div>
+
+              <h1>
+                Master <span className="text-gradient animated-gradient">Embedded</span>
+                <br /><span className="text-gradient animated-gradient delay">Systems</span> & IoT
+              </h1>
+
+              <p className="hero-tagline">
+                <span className="typing-text">&gt;</span> Connecting Knowledge. Powering Systems.
+              </p>
+
+              <p className="hero-description">
+                From bare-metal programming to cloud-connected IoT devices.
+                Learn to build smart energy monitoring systems with hands-on projects.
+              </p>
+
+              <div className="hero-buttons">
+                <Link to="/courses" className="btn btn-primary btn-glow">
+                  <FiTerminal /> Start Learning <FiArrowRight />
+                </Link>
+                <Link to="/about" className="btn btn-secondary btn-tech">
+                  <FiCode /> View Projects
+                </Link>
+              </div>
+
+              {/* Tech stack badges */}
+              <div className="tech-stack">
+                <span className="tech-badge">ESP32</span>
+                <span className="tech-badge">ARM</span>
+                <span className="tech-badge">MQTT</span>
+                <span className="tech-badge">FreeRTOS</span>
+                <span className="tech-badge">C/C++</span>
+              </div>
+            </div>
+
+            {/* Right side - Terminal/Code display */}
+            <div className="hero-right">
+              <div className="terminal-window">
+                <div className="terminal-header">
+                  <div className="terminal-dots">
+                    <span className="dot red" />
+                    <span className="dot yellow" />
+                    <span className="dot green" />
+                  </div>
+                  <span className="terminal-title">main.cpp — ESP32</span>
+                </div>
+                <div className="terminal-body">
+                  <pre className="code-content">
+                    <code>{typedCode}<span className="cursor">|</span></code>
+                  </pre>
+                </div>
+                <div className="terminal-footer">
+                  <span className="status-dot" />
+                  <span>Connected to broker.io</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Stats */}
+          {/* Stats - Redesigned */}
           <div className="hero-stats">
             <div className="stat">
-              <span className="stat-number">3</span>
-              <span className="stat-label">Course Topics</span>
+              <div className="stat-icon"><FiCpu /></div>
+              <div className="stat-content">
+                <span className="stat-number">3</span>
+                <span className="stat-label">Course Tracks</span>
+              </div>
             </div>
-            <div className="stat-divider" />
             <div className="stat">
-              <span className="stat-number">10+</span>
-              <span className="stat-label">Tutorials</span>
+              <div className="stat-icon"><FiCode /></div>
+              <div className="stat-content">
+                <span className="stat-number">10+</span>
+                <span className="stat-label">Tutorials</span>
+              </div>
             </div>
-            <div className="stat-divider" />
             <div className="stat">
-              <span className="stat-number">∞</span>
-              <span className="stat-label">Projects to Build</span>
+              <div className="stat-icon"><FiZap /></div>
+              <div className="stat-content">
+                <span className="stat-number">∞</span>
+                <span className="stat-label">Projects</span>
+              </div>
             </div>
           </div>
         </div>
@@ -179,9 +261,13 @@ function Home() {
       {/* Courses Preview */}
       <section className="courses-preview section" ref={coursesRef}>
         <div className="container">
-          <h2 className="section-title fade-in-up">
-            What We <span className="text-gradient">Teach</span>
-          </h2>
+          <div className="section-header fade-in-up">
+            <span className="section-tag"><FiTerminal /> Learning Paths</span>
+            <h2 className="section-title">
+              What You'll <span className="text-gradient">Build</span>
+            </h2>
+            <p className="section-subtitle">Choose your specialization and start building real-world projects</p>
+          </div>
           <div className="courses-grid">
             {courses.map((course, index) => (
               <Link
@@ -190,22 +276,24 @@ function Home() {
                 className={`course-card ${course.color} fade-in-up stagger-${index + 1}`}
               >
                 <div className="card-glow" />
+                <div className="card-circuit" />
                 <div className="course-icon">
                   {course.icon}
-                  <div className="icon-pulse" />
+                  <div className="icon-ring" />
                 </div>
                 <h3>{course.title}</h3>
                 <p>{course.description}</p>
-                <div className="card-arrow">
-                  <FiArrowRight />
+                <div className="course-tech">
+                  {course.tech.map((tech, i) => (
+                    <span key={i} className="tech-tag">{tech}</span>
+                  ))}
+                </div>
+                <div className="card-footer">
+                  <span className="explore-text">Explore track</span>
+                  <FiArrowRight className="arrow-icon" />
                 </div>
               </Link>
             ))}
-          </div>
-          <div className="courses-cta">
-            <Link to="/courses" className="btn btn-primary">
-              Explore All Courses <FiArrowRight />
-            </Link>
           </div>
         </div>
       </section>
@@ -213,17 +301,29 @@ function Home() {
       {/* CTA Section */}
       <section className="cta-section section" ref={ctaRef}>
         <div className="cta-bg">
-          <div className="cta-grid" />
+          <div className="cta-circuit" />
+          <div className="cta-glow" />
         </div>
         <div className="container">
-          <div className="cta-icon fade-in-up">
-            <FiZap />
+          <div className="cta-content">
+            <div className="cta-terminal fade-in-up">
+              <span className="prompt">$</span>
+              <span className="command">./start_learning</span>
+              <span className="cursor-blink">_</span>
+            </div>
+            <h2 className="fade-in-up stagger-1">Ready to Build Something?</h2>
+            <p className="fade-in-up stagger-2">
+              Start your journey from blinking LEDs to cloud-connected smart devices.
+            </p>
+            <div className="cta-buttons fade-in-up stagger-3">
+              <Link to="/courses" className="btn btn-primary btn-glow">
+                <FiTerminal /> Get Started <FiArrowRight />
+              </Link>
+              <Link to="/about" className="btn btn-secondary btn-tech">
+                <FiCode /> About Us
+              </Link>
+            </div>
           </div>
-          <h2 className="fade-in-up stagger-1">Ready to Start Learning?</h2>
-          <p className="fade-in-up stagger-2">Join us and build real-world embedded and IoT solutions.</p>
-          <Link to="/contact" className="btn btn-primary btn-glow fade-in-up stagger-3">
-            Get in Touch <FiArrowRight />
-          </Link>
         </div>
       </section>
     </div>
