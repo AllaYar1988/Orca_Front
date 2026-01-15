@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useIotAuth } from '../context/IotAuthContext';
 import { usePermissions } from '../hooks/usePermissions';
@@ -17,6 +17,7 @@ const IotLayout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const companiesFetchedRef = useRef(false);
 
   // Close mobile menu on route change and auto-expand the active company
   useEffect(() => {
@@ -24,26 +25,14 @@ const IotLayout = ({ children }) => {
 
     // Check if we're on a device page and auto-expand that company (keep others as they are)
     const deviceMatch = location.pathname.match(/\/iot\/device\/(\d+)\/(\d+)/);
+    const virtualDeviceMatch = location.pathname.match(/\/iot\/virtual-device\/(\d+)\/(\d+)/);
     const companyMatch = location.pathname.match(/\/iot\/company\/(\d+)/);
 
-    if (deviceMatch) {
-      const activeCompanyId = parseInt(deviceMatch[1]);
-      // Expand the active company (keep others unchanged)
-      setExpandedCompanies(prev => ({ ...prev, [activeCompanyId]: true }));
+    const activeCompanyId = deviceMatch ? parseInt(deviceMatch[1]) :
+                           virtualDeviceMatch ? parseInt(virtualDeviceMatch[1]) :
+                           companyMatch ? parseInt(companyMatch[1]) : null;
 
-      // Fetch devices for this company if not loaded
-      if (!companyDevices[activeCompanyId]) {
-        getCompanyDevices(activeCompanyId).then(data => {
-          if (data.success) {
-            setCompanyDevices(prev => ({
-              ...prev,
-              [activeCompanyId]: data.devices || []
-            }));
-          }
-        });
-      }
-    } else if (companyMatch) {
-      const activeCompanyId = parseInt(companyMatch[1]);
+    if (activeCompanyId) {
       // Expand the active company (keep others unchanged)
       setExpandedCompanies(prev => ({ ...prev, [activeCompanyId]: true }));
 
@@ -61,9 +50,10 @@ const IotLayout = ({ children }) => {
     }
   }, [location.pathname]);
 
-  // Fetch user's companies on mount
+  // Fetch user's companies on mount (only once)
   useEffect(() => {
-    if (iotUser?.id) {
+    if (iotUser?.id && !companiesFetchedRef.current) {
+      companiesFetchedRef.current = true;
       fetchCompanies();
     }
   }, [iotUser]);
@@ -192,7 +182,6 @@ const IotLayout = ({ children }) => {
                         <CompanyIcon type={company.type} size="sm" />
                         <span>{company.name}</span>
                       </div>
-                      <small className="iot-company-code">{company.code}</small>
                     </div>
 
                     {expandedCompanies[company.id] && (

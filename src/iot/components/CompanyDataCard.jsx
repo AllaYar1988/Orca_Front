@@ -13,11 +13,13 @@ const CompanyDataCard = ({ company, onClick }) => {
   const navigate = useNavigate();
   const config = getCompanyConfig(company.type);
   const devices = company.devices || [];
+  const virtualDevices = company.virtualDevices || [];
 
+  // Combine physical and virtual devices for stats
   const stats = {
-    total: devices.length,
-    online: devices.filter(d => d.is_online).length,
-    offline: devices.filter(d => !d.is_online).length,
+    total: devices.length + virtualDevices.length,
+    online: devices.filter(d => d.is_online).length + virtualDevices.filter(vd => vd.is_online).length,
+    offline: devices.filter(d => !d.is_online).length + virtualDevices.filter(vd => !vd.is_online).length,
   };
 
   const handleCardClick = () => {
@@ -31,6 +33,11 @@ const CompanyDataCard = ({ company, onClick }) => {
   const handleDeviceClick = (e, device) => {
     e.stopPropagation();
     navigate(`/iot/device/${company.id}/${device.id}`);
+  };
+
+  const handleVirtualDeviceClick = (e, vd) => {
+    e.stopPropagation();
+    navigate(`/iot/virtual-device/${company.id}/${vd.id}`);
   };
 
   return (
@@ -65,21 +72,38 @@ const CompanyDataCard = ({ company, onClick }) => {
 
       {/* Device List */}
       <div className="company-data-card__devices">
-        {devices.length === 0 ? (
+        {devices.length === 0 && virtualDevices.length === 0 ? (
           <div className="company-data-card__empty">
             <i className="bi bi-inbox"></i>
             <span>No devices</span>
           </div>
         ) : (
           <ul className="company-data-card__device-list">
-            {devices.slice(0, 5).map(device => (
+            {/* Virtual devices first */}
+            {virtualDevices.slice(0, 5).map(vd => (
+              <li
+                key={`vd-${vd.id}`}
+                className="company-data-card__device-item"
+                onClick={(e) => handleVirtualDeviceClick(e, vd)}
+              >
+                <span className={`company-data-card__device-status ${vd.is_online ? 'online' : 'offline'}`}>
+                  <i className="bi bi-diagram-3"></i>
+                </span>
+                <span className="company-data-card__device-name">{vd.name}</span>
+                <span className="company-data-card__device-time">
+                  {formatSecondsAgo(vd.seconds_ago)}
+                </span>
+              </li>
+            ))}
+            {/* Physical devices */}
+            {devices.slice(0, Math.max(0, 5 - virtualDevices.length)).map(device => (
               <li
                 key={device.id}
                 className="company-data-card__device-item"
                 onClick={(e) => handleDeviceClick(e, device)}
               >
                 <span className={`company-data-card__device-status ${device.is_online ? 'online' : 'offline'}`}>
-                  <i className={`bi bi-circle-fill`}></i>
+                  <i className="bi bi-circle-fill"></i>
                 </span>
                 <span className="company-data-card__device-name">{device.name}</span>
                 <span className="company-data-card__device-time">
@@ -87,9 +111,9 @@ const CompanyDataCard = ({ company, onClick }) => {
                 </span>
               </li>
             ))}
-            {devices.length > 5 && (
+            {(devices.length + virtualDevices.length) > 5 && (
               <li className="company-data-card__device-more">
-                +{devices.length - 5} more devices
+                +{devices.length + virtualDevices.length - 5} more devices
               </li>
             )}
           </ul>

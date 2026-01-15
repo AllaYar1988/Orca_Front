@@ -183,3 +183,45 @@ export const deleteSensorConfig = async (deviceId, logKey) => {
   });
   return response.data;
 };
+
+// ============ Virtual Devices API ============
+
+/**
+ * Get all virtual devices assigned to the authenticated user
+ * @returns {Promise} - { success, virtual_devices: [...] }
+ */
+export const getUserVirtualDevices = async () => {
+  const response = await api.get('/virtual_devices.php');
+  return response.data;
+};
+
+/**
+ * Get virtual devices for a specific company
+ * @param {number} companyId - Company ID
+ * @returns {Promise} - { success, virtual_devices: [...] }
+ */
+export const getCompanyVirtualDevices = async (companyId) => {
+  const response = await api.get('/virtual_devices.php', {
+    params: { company_id: companyId }
+  });
+  return response.data;
+};
+
+/**
+ * Get virtual device details with sensor data
+ * @param {number} virtualDeviceId - Virtual Device ID
+ * @returns {Promise} - { success, virtual_device: { id, name, is_online, sensors: [...] } }
+ *
+ * Response includes:
+ *   - is_online: true if any sensor is live
+ *   - all_online: true if all sensors are live
+ *   - live_count / total_count: sensor status summary
+ *   - seconds_ago: time since most recent sensor update
+ *   - sensors: array with { label, value, unit, is_online, status, source_device_name }
+ */
+export const getVirtualDeviceDetails = async (virtualDeviceId) => {
+  const response = await api.get('/virtual_devices.php', {
+    params: { id: virtualDeviceId }
+  });
+  return response.data;
+};

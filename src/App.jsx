@@ -18,6 +18,7 @@ import IotLogin from './iot/pages/IotLogin';
 import IotCompanies from './iot/pages/IotCompanies';
 import IotCompanyDevices from './iot/pages/IotCompanyDevices';
 import IotDeviceView from './iot/pages/IotDeviceView';
+import IotVirtualDeviceView from './iot/pages/IotVirtualDeviceView';
 import IotDataDashboard from './iot/pages/IotDataDashboard';
 
 function App() {
@@ -56,6 +57,14 @@ function App() {
             element={
               <IotProtectedRoute>
                 <IotDeviceView />
+              </IotProtectedRoute>
+            }
+          />
+          <Route
+            path="/iot/virtual-device/:companyId/:virtualDeviceId"
+            element={
+              <IotProtectedRoute>
+                <IotVirtualDeviceView />
               </IotProtectedRoute>
             }
           />

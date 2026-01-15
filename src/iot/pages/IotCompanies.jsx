@@ -1,17 +1,20 @@
-import { useState, useEffect } from 'react';
-import { useIotAuth } from '../context/IotAuthContext';
+import { useState, useEffect, useRef } from 'react';
 import { getUserCompanies, getCompanyDevices, getDevicesStatus } from '../api/devices';
 import IotLayout from '../components/IotLayout';
 import CompanyDataCard from '../components/CompanyDataCard';
 import '../styles/sensor-components.css';
 
 const IotCompanies = () => {
-  const { iotUser } = useIotAuth();
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent double-fetch in StrictMode
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+
     const fetchCompaniesWithDevices = async () => {
       try {
         const response = await getUserCompanies();
@@ -22,6 +25,7 @@ const IotCompanies = () => {
               try {
                 const devicesRes = await getCompanyDevices(company.id);
                 const devices = devicesRes.success ? devicesRes.devices || [] : [];
+                const virtualDevices = devicesRes.success ? devicesRes.virtual_devices || [] : [];
 
                 // Fetch real-time status for devices
                 if (devices.length > 0) {
@@ -46,10 +50,11 @@ const IotCompanies = () => {
 
                 return {
                   ...company,
-                  devices
+                  devices,
+                  virtualDevices
                 };
               } catch {
-                return { ...company, devices: [] };
+                return { ...company, devices: [], virtualDevices: [] };
               }
             })
           );
@@ -64,14 +69,16 @@ const IotCompanies = () => {
     };
 
     fetchCompaniesWithDevices();
-  }, [iotUser]);
+  }, []);
 
-  // Calculate overall stats
+  // Calculate overall stats (including virtual devices)
   const stats = {
     totalCompanies: companies.length,
-    totalDevices: companies.reduce((sum, c) => sum + (c.devices?.length || 0), 0),
-    onlineDevices: companies.reduce((sum, c) => sum + (c.devices?.filter(d => d.is_online).length || 0), 0),
-    offlineDevices: companies.reduce((sum, c) => sum + (c.devices?.filter(d => !d.is_online).length || 0), 0),
+    totalDevices: companies.reduce((sum, c) => sum + (c.devices?.length || 0) + (c.virtualDevices?.length || 0), 0),
+    onlineDevices: companies.reduce((sum, c) =>
+      sum + (c.devices?.filter(d => d.is_online).length || 0) + (c.virtualDevices?.filter(vd => vd.is_online).length || 0), 0),
+    offlineDevices: companies.reduce((sum, c) =>
+      sum + (c.devices?.filter(d => !d.is_online).length || 0) + (c.virtualDevices?.filter(vd => !vd.is_online).length || 0), 0),
   };
 
   if (loading) {
